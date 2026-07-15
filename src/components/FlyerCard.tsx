@@ -15,7 +15,8 @@ import { ProductFlyer } from "../types";
 import { 
   formatUpdateDate, 
   formatRupiah, 
-  getDriveImageUrl 
+  getDriveImageUrl,
+  isWithinLast24Hours
 } from "../utils/dataService";
 
 interface FlyerCardProps {
@@ -42,6 +43,7 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
 
   const imageUrl = imageId ? getDriveImageUrl(imageId) : "";
   const lastUpdateFormatted = formatUpdateDate(product.lastUpdate);
+  const isNew = isWithinLast24Hours(product.lastUpdate || product.lastUpdate1);
 
   // Color mappings based on category for rich visual rhythm
   const getCategoryColor = (cat: string) => {
@@ -69,10 +71,10 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.25 }}
       onClick={handleCardClick}
-      className={`group relative flex flex-col bg-white rounded-2xl border transition-all duration-300 overflow-hidden cursor-pointer select-none ${
+      className={`group relative flex flex-col bg-white rounded-2xl border transition-all duration-300 ease-out overflow-hidden cursor-pointer select-none ${
         isSelected 
-          ? "border-blue-600 ring-4 ring-blue-100 shadow-lg" 
-          : "border-slate-150/80 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 hover:-translate-y-1"
+          ? "border-blue-600 ring-4 ring-blue-100 shadow-lg scale-[1.02]" 
+          : "border-slate-150/80 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 hover:scale-[1.02] hover:-translate-y-1"
       }`}
     >
       {/* Floating Selection Checkbox Overlay */}
@@ -93,12 +95,18 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
       )}
 
       {/* Top badges floating over image */}
-      <div className="absolute top-3 left-3 max-w-[70%] z-10 flex items-center justify-between pointer-events-none">
+      <div className="absolute top-3 left-3 max-w-[85%] z-10 flex items-center justify-between pointer-events-none">
         <div className="flex flex-wrap gap-1.5">
           {product.merk && (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-700 bg-white/90 backdrop-blur-md border border-slate-200/80 px-2.5 py-1 rounded-full uppercase tracking-wide shadow-xs">
               <Tag size={10} className="stroke-[2.5]" />
               {product.merk}
+            </span>
+          )}
+          {isNew && (
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-white bg-rose-600 border border-rose-500/80 px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm animate-pulse">
+              <Sparkles size={10} className="fill-current stroke-[2.5]" />
+              New Update
             </span>
           )}
         </div>

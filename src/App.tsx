@@ -793,28 +793,37 @@ export default function App() {
 
             {filteredProducts.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {paginatedProducts.map((product) => (
-                    <FlyerCard 
-                      key={product.code} 
-                      product={product} 
-                      onOpenDetails={(p) => setSelectedProduct(p)} 
-                      isSelectionMode={isSelectionMode}
-                      isSelected={selectedProductCodes.has(product.code)}
-                      onToggleSelect={(code) => {
-                        setSelectedProductCodes((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(code)) {
-                            next.delete(code);
-                          } else {
-                            next.add(code);
-                          }
-                          return next;
-                        });
-                      }}
-                    />
-                  ))}
-                </div>
+                <AnimatePresence mode="popLayout">
+                  <motion.div
+                    key={`${currentPage}-${searchQuery}-${selectedCategory}-${selectedBrand}-${selectedSubCategory}-${metricFilter}-${imagePresenceFilter}`}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+                  >
+                    {paginatedProducts.map((product) => (
+                      <FlyerCard 
+                        key={product.code} 
+                        product={product} 
+                        onOpenDetails={(p) => setSelectedProduct(p)} 
+                        isSelectionMode={isSelectionMode}
+                        isSelected={selectedProductCodes.has(product.code)}
+                        onToggleSelect={(code) => {
+                          setSelectedProductCodes((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(code)) {
+                              next.delete(code);
+                            } else {
+                              next.add(code);
+                            }
+                            return next;
+                          });
+                        }}
+                      />
+                    ))}
+                  </motion.div>
+                </AnimatePresence>
 
                 {/* Pagination Controls */}
                 {totalPages > 1 && (

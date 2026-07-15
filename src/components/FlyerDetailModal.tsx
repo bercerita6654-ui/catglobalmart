@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Download, FileImage } from "lucide-react";
+import { X, Download, FileImage, Sparkles } from "lucide-react";
 import { ProductFlyer } from "../types";
-import { getDriveImageUrl, getDriveDownloadUrl } from "../utils/dataService";
+import { getDriveImageUrl, getDriveDownloadUrl, isWithinLast24Hours } from "../utils/dataService";
 
 interface FlyerDetailModalProps {
   product: ProductFlyer | null;
@@ -97,17 +97,28 @@ export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({ product, onC
           </button>
 
           {/* Header */}
-          <div className="mb-4 pr-10">
-            <h3 className="text-base font-black text-slate-950 tracking-tight leading-snug">
-              {product.description}
-            </h3>
-            <div className="mt-1.5">
-              <span className="text-xs font-mono font-black text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-md inline-flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                SKU: {product.code}
-              </span>
-            </div>
-          </div>
+          {(() => {
+            const isNew = isWithinLast24Hours(product.lastUpdate || product.lastUpdate1);
+            return (
+              <div className="mb-4 pr-10">
+                <h3 className="text-base font-black text-slate-950 tracking-tight leading-snug">
+                  {product.description}
+                </h3>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-mono font-black text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-md inline-flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    SKU: {product.code}
+                  </span>
+                  {isNew && (
+                    <span className="text-[10px] font-black text-white bg-rose-600 border border-rose-500/80 px-2.5 py-1 rounded-full uppercase tracking-wider inline-flex items-center gap-1 animate-pulse">
+                      <Sparkles size={10} className="fill-current stroke-[2.5]" />
+                      New Update
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Flyer Image Container */}
           <div className="relative flex-grow flex items-center justify-center bg-slate-100/60 rounded-2xl border border-slate-200 overflow-hidden p-2 min-h-[300px] md:min-h-[480px]">
