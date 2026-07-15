@@ -1,0 +1,6 @@
+{
+  "name": "FLYER PRODUCT GLOBAL MART",
+  "description": "A modern, responsive web application showcasing product flyers and update logs directly fetched and parsed from Google Sheets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
