@@ -1058,6 +1058,20 @@ export default function App() {
       <FlyerDetailModal 
         product={selectedProduct} 
         onClose={() => setSelectedProduct(null)} 
+        onPrev={() => {
+          if (!selectedProduct || filteredProducts.length === 0) return;
+          const currentIndex = filteredProducts.findIndex((p) => p.code === selectedProduct.code);
+          if (currentIndex === -1) return;
+          const prevIndex = (currentIndex - 1 + filteredProducts.length) % filteredProducts.length;
+          setSelectedProduct(filteredProducts[prevIndex]);
+        }}
+        onNext={() => {
+          if (!selectedProduct || filteredProducts.length === 0) return;
+          const currentIndex = filteredProducts.findIndex((p) => p.code === selectedProduct.code);
+          if (currentIndex === -1) return;
+          const nextIndex = (currentIndex + 1) % filteredProducts.length;
+          setSelectedProduct(filteredProducts[nextIndex]);
+        }}
       />
 
       {/* Downloading Zip Progress Overlay */}

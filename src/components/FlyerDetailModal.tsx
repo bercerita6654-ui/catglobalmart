@@ -1,18 +1,29 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Download, FileImage, Sparkles } from "lucide-react";
+import { X, Download, FileImage, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { ProductFlyer } from "../types";
 import { getDriveImageUrl, getDriveDownloadUrl, isWithinLast24Hours } from "../utils/dataService";
 
 interface FlyerDetailModalProps {
   product: ProductFlyer | null;
   onClose: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
 }
 
-export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({ product, onClose }) => {
+export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({ 
+  product, 
+  onClose,
+  onPrev,
+  onNext
+}) => {
   const [imgError, setImgError] = useState(false);
   const [imgLoading, setImgLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+
+  // Touch Swipe coordinates
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   // Reset image status when product changes
   useEffect(() => {
@@ -22,20 +33,47 @@ export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({ product, onC
     }
   }, [product]);
 
-  // Handle outside click or Escape key to close
+  // Handle outside click, Escape, and Arrow keys to navigate
   useEffect(() => {
     if (!product) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft" && onPrev) onPrev();
+      if (e.key === "ArrowRight" && onNext) onNext();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [product, onClose]);
+  }, [product, onClose, onPrev, onNext]);
 
   if (!product) return null;
 
   const activeImageId = product.gambarStory;
   const activeImageUrl = activeImageId ? getDriveImageUrl(activeImageId) : "";
+
+  // Handle Touch Events
+  const minSwipeDistance = 50;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && onNext) {
+      onNext();
+    } else if (isRightSwipe && onPrev) {
+      onPrev();
+    }
+  };
 
   const handleDownload = async () => {
     if (!activeImageId) return;
@@ -121,7 +159,34 @@ export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({ product, onC
           })()}
 
           {/* Flyer Image Container */}
-          <div className="relative flex-grow flex items-center justify-center bg-slate-100/60 rounded-2xl border border-slate-200 overflow-hidden p-2 min-h-[300px] md:min-h-[480px]">
+          <div 
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="relative flex-grow flex items-center justify-center bg-slate-100/60 rounded-2xl border border-slate-200 overflow-hidden p-2 min-h-[300px] md:min-h-[480px] group"
+          >
+            {/* Left navigation arrow */}
+            {onPrev && (
+              <button
+                onClick={onPrev}
+                className="absolute left-3.5 z-20 p-2 sm:p-2.5 rounded-full bg-white/90 hover:bg-white backdrop-blur-md border border-slate-200 text-slate-800 hover:text-blue-900 shadow-md transition-all cursor-pointer opacity-85 hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 active:scale-90"
+                aria-label="Flyer Sebelumnya"
+              >
+                <ChevronLeft size={22} className="stroke-[2.5]" />
+              </button>
+            )}
+
+            {/* Right navigation arrow */}
+            {onNext && (
+              <button
+                onClick={onNext}
+                className="absolute right-3.5 z-20 p-2 sm:p-2.5 rounded-full bg-white/90 hover:bg-white backdrop-blur-md border border-slate-200 text-slate-800 hover:text-blue-900 shadow-md transition-all cursor-pointer opacity-85 hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 active:scale-90"
+                aria-label="Flyer Berikutnya"
+              >
+                <ChevronRight size={22} className="stroke-[2.5]" />
+              </button>
+            )}
+
             {activeImageUrl && !imgError ? (
               <>
                 {imgLoading && (
@@ -139,7 +204,7 @@ export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({ product, onC
                     setImgError(true);
                     setImgLoading(false);
                   }}
-                  className={`max-h-[60vh] max-w-full object-contain transition-all duration-300 rounded-xl ${
+                  className={`max-h-[60vh] max-w-full object-contain transition-all duration-300 rounded-xl select-none pointer-events-none ${
                     imgLoading ? "scale-95 opacity-0" : "scale-100 opacity-100"
                   }`}
                 />
