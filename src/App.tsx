@@ -450,7 +450,7 @@ export default function App() {
         />
 
         {/* Main interactive search, filter and sorting panel */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-100/40 p-5 mb-8">
+        <div className="sticky top-[80px] z-20 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/80 shadow-lg p-4 mb-6">
           <div className="flex items-center justify-between gap-4 mb-5 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={14} className="text-slate-700 stroke-[2.5]" />
