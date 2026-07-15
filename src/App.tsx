@@ -19,7 +19,9 @@ import {
   ChevronsRight,
   Download,
   DownloadCloud,
-  CheckSquare
+  CheckSquare,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 
 import { ProductFlyer, Stats } from "./types";
@@ -66,6 +68,17 @@ export default function App() {
   // Custom Selection States
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   const [selectedProductCodes, setSelectedProductCodes] = useState<Set<string>>(new Set());
+
+  // Filter panel collapse state (Closed by default on mobile, open by default on desktop)
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState<boolean>(true);
+  const [isBulkPanelOpen, setIsBulkPanelOpen] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setIsFilterPanelOpen(false);
+      setIsBulkPanelOpen(false);
+    }
+  }, []);
 
   // Bulk download select targets
   const [bulkDownloadCategory, setBulkDownloadCategory] = useState<string>("");
@@ -451,262 +464,337 @@ export default function App() {
 
         {/* Main interactive search, filter and sorting panel */}
         <div className="sticky top-[80px] z-20 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/80 shadow-lg p-4 mb-6">
-          <div className="flex items-center justify-between gap-4 mb-5 border-b border-slate-100 pb-4">
+          <div 
+            onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
+            className={`flex items-center justify-between gap-4 cursor-pointer select-none transition-all ${
+              isFilterPanelOpen ? "border-b border-slate-100 pb-4 mb-5" : ""
+            }`}
+          >
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={14} className="text-slate-700 stroke-[2.5]" />
-              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-750">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-755">
                 Panel Filter & Cari
               </h3>
-            </div>
-            
-            {/* Active filters counter / Clear triggers */}
-            {isAnyFilterActive && (
-              <button
-                onClick={handleResetFilters}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-100 text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer hover:-translate-y-0.5"
-              >
-                <X size={12} className="stroke-[3]" />
-                Reset Filter
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            
-            {/* Search Input */}
-            <div className="md:col-span-3 relative">
-              <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-slate-500">
-                <Search size={16} className="stroke-[2.5]" />
-              </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari deskripsi, kode, barcode..."
-                className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-150 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all outline-none text-slate-800 font-semibold shadow-xs"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-650 cursor-pointer"
-                >
-                  <X size={14} className="stroke-[3]" />
-                </button>
+              {/* Active filters indicator */}
+              {isAnyFilterActive && (
+                <span className="bg-blue-100 text-blue-800 text-[9px] sm:text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
+                  Aktif
+                </span>
               )}
             </div>
-
-            {/* Category Dropdown */}
-            <div className="md:col-span-2">
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-150 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all outline-none text-slate-800 font-semibold shadow-xs cursor-pointer"
-              >
-                <option value="">Semua Kategori ({categories.length})</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Brand Dropdown */}
-            <div className="md:col-span-2">
-              <select
-                value={selectedBrand}
-                onChange={(e) => setSelectedBrand(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-150 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all outline-none text-slate-800 font-semibold shadow-xs cursor-pointer"
-              >
-                <option value="">Semua Merk ({brands.length})</option>
-                {brands.map((brand) => (
-                  <option key={brand} value={brand}>
-                    {brand}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Image Presence Dropdown (Ada Gambar / Tidak Ada Gambar) */}
-            <div className="md:col-span-2">
-              <select
-                value={imagePresenceFilter}
-                onChange={(e) => setImagePresenceFilter(e.target.value as any)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-150 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all outline-none text-slate-800 font-semibold shadow-xs cursor-pointer"
-              >
-                <option value="all">Semua Gambar</option>
-                <option value="with_image">Ada Gambar</option>
-                <option value="without_image">Tidak Ada Gambar</option>
-              </select>
-            </div>
-
-            {/* Sorting Dropdown */}
-            <div className="md:col-span-3 relative">
-              <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-500">
-                <ArrowUpDown size={14} className="stroke-[2.5]" />
-              </div>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-150 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all outline-none text-slate-800 font-semibold shadow-xs cursor-pointer"
-              >
-                <option value="newest">Terbaru Di-update</option>
-                <option value="oldest">Terlama Di-update</option>
-                <option value="name_asc">Nama (A-Z)</option>
-                <option value="name_desc">Nama (Z-A)</option>
-              </select>
-            </div>
-
-          </div>
-
-          {/* Sub-Category pills (Dynamic row depending on selected Category) */}
-          {selectedCategory && subCategories.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Sub Kategori:</span>
-              <button
-                onClick={() => setSelectedSubCategory("")}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer border transition-all ${
-                  selectedSubCategory === "" 
-                    ? "bg-blue-900 text-white border-blue-900 shadow-sm" 
-                    : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs hover:-translate-y-0.5"
-                }`}
-              >
-                Semua
-              </button>
-              {subCategories
-                .filter((sub) => {
-                  // Only show subcategories that exist in the selected category
-                  return productsWithFlyers.some((p) => p.kategori === selectedCategory && p.subKategori === sub);
-                })
-                .map((sub) => (
-                  <button
-                    key={sub}
-                    onClick={() => setSelectedSubCategory(sub)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer border transition-all ${
-                      selectedSubCategory === sub
-                        ? "bg-blue-900 text-white border-blue-900 shadow-sm"
-                        : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs hover:-translate-y-0.5"
-                    }`}
-                  >
-                    {sub}
-                  </button>
-                ))}
-            </div>
-          )}
-        </div>
-
-        {/* Bulk Download Panel - Compact & Integrated style */}
-        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 mb-6 text-slate-800">
-          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200/60">
-            <Download size={14} className="text-blue-600 stroke-[2.5]" />
-            <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-700">
-              Unduh Banyak Flyer Sekaligus (ZIP)
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Download by Category */}
-            <div className="bg-white border border-slate-150 rounded-xl p-3 flex flex-col justify-between shadow-xs">
-              <div>
-                <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-700 mb-1">1. Berdasarkan Kategori</h4>
-                <p className="text-[10px] text-slate-500 mb-2 font-semibold leading-relaxed">Unduh seluruh flyer dalam satu kategori sekaligus.</p>
-                <select
-                  value={bulkDownloadCategory}
-                  onChange={(e) => setBulkDownloadCategory(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 focus:bg-white rounded-lg text-[11px] font-bold transition-all outline-none text-slate-800 cursor-pointer"
+            
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {/* Active filters counter / Clear triggers */}
+              {isAnyFilterActive && (
+                <button
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-100 text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer hover:-translate-y-0.5"
                 >
-                  <option value="" className="text-slate-500">Pilih Kategori...</option>
-                  {categories.map((cat) => {
-                    const count = products.filter(p => p.kategori === cat && (p.gambarStory || p.fotoProduk)).length;
-                    return (
-                      <option key={cat} value={cat} className="text-slate-800 font-semibold">
-                        {cat} ({count} gambar)
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-              <button
-                onClick={() => {
-                  if (!bulkDownloadCategory) return;
-                  const targets = products.filter(p => p.kategori === bulkDownloadCategory);
-                  downloadFlyersAsZip(targets, `Flyer_Kategori_${bulkDownloadCategory.replace(/\s+/g, '_')}`);
-                }}
-                disabled={!bulkDownloadCategory || downloadingZip}
-                className="mt-2.5 w-full py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-extrabold text-[11px] rounded-lg shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1"
-              >
-                <DownloadCloud size={12} className="stroke-[2.5]" />
-                Unduh Kategori
-              </button>
-            </div>
+                  <X size={12} className="stroke-[3]" />
+                  Reset Filter
+                </button>
+              )}
 
-            {/* Download by Brand */}
-            <div className="bg-white border border-slate-150 rounded-xl p-3 flex flex-col justify-between shadow-xs">
-              <div>
-                <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-700 mb-1">2. Berdasarkan Merk</h4>
-                <p className="text-[10px] text-slate-500 mb-2 font-semibold leading-relaxed">Unduh seluruh flyer dengan merk yang sama sekaligus.</p>
-                <select
-                  value={bulkDownloadBrand}
-                  onChange={(e) => setBulkDownloadBrand(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 focus:bg-white rounded-lg text-[11px] font-bold transition-all outline-none text-slate-800 cursor-pointer"
-                >
-                  <option value="" className="text-slate-500">Pilih Merk...</option>
-                  {brands.map((brand) => {
-                    const count = products.filter(p => p.merk === brand && (p.gambarStory || p.fotoProduk)).length;
-                    return (
-                      <option key={brand} value={brand} className="text-slate-800 font-semibold">
-                        {brand} ({count} gambar)
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
               <button
-                onClick={() => {
-                  if (!bulkDownloadBrand) return;
-                  const targets = products.filter(p => p.merk === bulkDownloadBrand);
-                  downloadFlyersAsZip(targets, `Flyer_Merk_${bulkDownloadBrand.replace(/\s+/g, '_')}`);
-                }}
-                disabled={!bulkDownloadBrand || downloadingZip}
-                className="mt-2.5 w-full py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-extrabold text-[11px] rounded-lg shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
+                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                aria-label={isFilterPanelOpen ? "Sembunyikan Filter" : "Tampilkan Filter"}
               >
-                <DownloadCloud size={12} className="stroke-[2.5]" />
-                Unduh Merk
-              </button>
-            </div>
-
-            {/* Custom selection trigger */}
-            <div className="bg-white border border-slate-150 rounded-xl p-3 flex flex-col justify-between shadow-xs">
-              <div>
-                <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-700 mb-1">3. Pilihan Bebas / Kustom</h4>
-                <p className="text-[10px] text-slate-500 mb-2 font-semibold leading-relaxed">Pilih sendiri flyer produk yang diinginkan lewat checklist.</p>
-                <div className="text-[10px] font-bold py-1 px-2.5 rounded bg-blue-50 text-blue-700 border border-blue-100 inline-block mb-1 font-mono">
-                  {isSelectionMode ? `Mode Aktif: ${selectedProductCodes.size} terpilih` : "Mode Nonaktif"}
-                </div>
-              </div>
-              <button
-                onClick={handleToggleSelectionMode}
-                disabled={downloadingZip}
-                className={`mt-2.5 w-full py-1.5 font-extrabold text-[11px] rounded-lg shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                  isSelectionMode 
-                    ? "bg-rose-600 hover:bg-rose-700 text-white" 
-                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                }`}
-              >
-                {isSelectionMode ? (
-                  <>
-                    <X size={12} className="stroke-[2.5]" />
-                    Matikan Checklist
-                  </>
+                {isFilterPanelOpen ? (
+                  <ChevronUp size={16} className="stroke-[2.5]" />
                 ) : (
-                  <>
-                    <CheckSquare size={12} className="stroke-[2.5]" />
-                    Aktifkan Checklist
-                  </>
+                  <ChevronDown size={16} className="stroke-[2.5]" />
                 )}
               </button>
             </div>
           </div>
+
+          <AnimatePresence initial={false}>
+            {isFilterPanelOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+                animate={{ opacity: 1, height: "auto", overflow: "visible" }}
+                exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                  
+                  {/* Search Input */}
+                  <div className="md:col-span-3 relative">
+                    <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-slate-500">
+                      <Search size={16} className="stroke-[2.5]" />
+                    </div>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Cari deskripsi, kode, barcode..."
+                      className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-150 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all outline-none text-slate-800 font-semibold shadow-xs"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-650 cursor-pointer"
+                      >
+                        <X size={14} className="stroke-[3]" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Category Dropdown */}
+                  <div className="md:col-span-2">
+                    <select
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-150 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all outline-none text-slate-800 font-semibold shadow-xs cursor-pointer"
+                    >
+                      <option value="">Semua Kategori ({categories.length})</option>
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Brand Dropdown */}
+                  <div className="md:col-span-2">
+                    <select
+                      value={selectedBrand}
+                      onChange={(e) => setSelectedBrand(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-150 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all outline-none text-slate-800 font-semibold shadow-xs cursor-pointer"
+                    >
+                      <option value="">Semua Merk ({brands.length})</option>
+                      {brands.map((brand) => (
+                        <option key={brand} value={brand}>
+                          {brand}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Image Presence Dropdown (Ada Gambar / Tidak Ada Gambar) */}
+                  <div className="md:col-span-2">
+                    <select
+                      value={imagePresenceFilter}
+                      onChange={(e) => setImagePresenceFilter(e.target.value as any)}
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-150 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all outline-none text-slate-800 font-semibold shadow-xs cursor-pointer"
+                    >
+                      <option value="all">Semua Gambar</option>
+                      <option value="with_image">Ada Gambar</option>
+                      <option value="without_image">Tidak Ada Gambar</option>
+                    </select>
+                  </div>
+
+                  {/* Sorting Dropdown */}
+                  <div className="md:col-span-3 relative">
+                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-500">
+                      <ArrowUpDown size={14} className="stroke-[2.5]" />
+                    </div>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-150 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all outline-none text-slate-800 font-semibold shadow-xs cursor-pointer"
+                    >
+                      <option value="newest">Terbaru Di-update</option>
+                      <option value="oldest">Terlama Di-update</option>
+                      <option value="name_asc">Nama (A-Z)</option>
+                      <option value="name_desc">Nama (Z-A)</option>
+                    </select>
+                  </div>
+
+                </div>
+
+                {/* Sub-Category pills (Dynamic row depending on selected Category) */}
+                {selectedCategory && subCategories.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Sub Kategori:</span>
+                    <button
+                      onClick={() => setSelectedSubCategory("")}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer border transition-all ${
+                        selectedSubCategory === "" 
+                          ? "bg-blue-900 text-white border-blue-900 shadow-sm" 
+                          : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs hover:-translate-y-0.5"
+                      }`}
+                    >
+                      Semua
+                    </button>
+                    {subCategories
+                      .filter((sub) => {
+                        // Only show subcategories that exist in the selected category
+                        return productsWithFlyers.some((p) => p.kategori === selectedCategory && p.subKategori === sub);
+                      })
+                      .filter(Boolean)
+                      .map((sub) => (
+                        <button
+                          key={sub}
+                          onClick={() => setSelectedSubCategory(sub)}
+                          className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer border transition-all ${
+                            selectedSubCategory === sub
+                              ? "bg-blue-900 text-white border-blue-900 shadow-sm"
+                              : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs hover:-translate-y-0.5"
+                          }`}
+                        >
+                          {sub}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Bulk Download Panel - Compact & Integrated style */}
+        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 mb-6 text-slate-800">
+          <div 
+            onClick={() => setIsBulkPanelOpen(!isBulkPanelOpen)}
+            className={`flex items-center justify-between gap-4 cursor-pointer select-none transition-all ${
+              isBulkPanelOpen ? "mb-3 pb-2 border-b border-slate-200/60" : ""
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Download size={14} className="text-blue-600 stroke-[2.5]" />
+              <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-700">
+                Unduh Banyak Flyer Sekaligus (ZIP)
+              </h3>
+              {isSelectionMode && (
+                <span className="bg-emerald-100 text-emerald-850 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider animate-pulse">
+                  Checklist Aktif ({selectedProductCodes.size})
+                </span>
+              )}
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsBulkPanelOpen(!isBulkPanelOpen);
+              }}
+              className="p-1 hover:bg-slate-200/60 rounded text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              aria-label={isBulkPanelOpen ? "Sembunyikan Panel Unduh" : "Tampilkan Panel Unduh"}
+            >
+              {isBulkPanelOpen ? (
+                <ChevronUp size={14} className="stroke-[2.5]" />
+              ) : (
+                <ChevronDown size={14} className="stroke-[2.5]" />
+              )}
+            </button>
+          </div>
+
+          <AnimatePresence initial={false}>
+            {isBulkPanelOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+                animate={{ opacity: 1, height: "auto", overflow: "visible" }}
+                exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Download by Category */}
+                  <div className="bg-white border border-slate-150 rounded-xl p-3 flex flex-col justify-between shadow-xs">
+                    <div>
+                      <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-700 mb-1">1. Berdasarkan Kategori</h4>
+                      <p className="text-[10px] text-slate-500 mb-2 font-semibold leading-relaxed">Unduh seluruh flyer dalam satu kategori sekaligus.</p>
+                      <select
+                        value={bulkDownloadCategory}
+                        onChange={(e) => setBulkDownloadCategory(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 focus:bg-white rounded-lg text-[11px] font-bold transition-all outline-none text-slate-800 cursor-pointer"
+                      >
+                        <option value="" className="text-slate-500">Pilih Kategori...</option>
+                        {categories.map((cat) => {
+                          const count = products.filter(p => p.kategori === cat && (p.gambarStory || p.fotoProduk)).length;
+                          return (
+                            <option key={cat} value={cat} className="text-slate-800 font-semibold">
+                              {cat} ({count} gambar)
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!bulkDownloadCategory) return;
+                        const targets = products.filter(p => p.kategori === bulkDownloadCategory);
+                        downloadFlyersAsZip(targets, `Flyer_Kategori_${bulkDownloadCategory.replace(/\s+/g, '_')}`);
+                      }}
+                      disabled={!bulkDownloadCategory || downloadingZip}
+                      className="mt-2.5 w-full py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-extrabold text-[11px] rounded-lg shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <DownloadCloud size={12} className="stroke-[2.5]" />
+                      Unduh Kategori
+                    </button>
+                  </div>
+
+                  {/* Download by Brand */}
+                  <div className="bg-white border border-slate-150 rounded-xl p-3 flex flex-col justify-between shadow-xs">
+                    <div>
+                      <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-700 mb-1">2. Berdasarkan Merk</h4>
+                      <p className="text-[10px] text-slate-500 mb-2 font-semibold leading-relaxed">Unduh seluruh flyer dengan merk yang sama sekaligus.</p>
+                      <select
+                        value={bulkDownloadBrand}
+                        onChange={(e) => setBulkDownloadBrand(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 focus:bg-white rounded-lg text-[11px] font-bold transition-all outline-none text-slate-800 cursor-pointer"
+                      >
+                        <option value="" className="text-slate-500">Pilih Merk...</option>
+                        {brands.map((brand) => {
+                          const count = products.filter(p => p.merk === brand && (p.gambarStory || p.fotoProduk)).length;
+                          return (
+                            <option key={brand} value={brand} className="text-slate-800 font-semibold">
+                              {brand} ({count} gambar)
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!bulkDownloadBrand) return;
+                        const targets = products.filter(p => p.merk === bulkDownloadBrand);
+                        downloadFlyersAsZip(targets, `Flyer_Merk_${bulkDownloadBrand.replace(/\s+/g, '_')}`);
+                      }}
+                      disabled={!bulkDownloadBrand || downloadingZip}
+                      className="mt-2.5 w-full py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-extrabold text-[11px] rounded-lg shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <DownloadCloud size={12} className="stroke-[2.5]" />
+                      Unduh Merk
+                    </button>
+                  </div>
+
+                  {/* Custom selection trigger */}
+                  <div className="bg-white border border-slate-150 rounded-xl p-3 flex flex-col justify-between shadow-xs">
+                    <div>
+                      <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-700 mb-1">3. Pilihan Bebas / Kustom</h4>
+                      <p className="text-[10px] text-slate-500 mb-2 font-semibold leading-relaxed">Pilih sendiri flyer produk yang diinginkan lewat checklist.</p>
+                      <div className="text-[10px] font-bold py-1 px-2.5 rounded bg-blue-50 text-blue-700 border border-blue-100 inline-block mb-1 font-mono">
+                        {isSelectionMode ? `Mode Aktif: ${selectedProductCodes.size} terpilih` : "Mode Nonaktif"}
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleToggleSelectionMode}
+                      disabled={downloadingZip}
+                      className={`mt-2.5 w-full py-1.5 font-extrabold text-[11px] rounded-lg shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                        isSelectionMode 
+                          ? "bg-rose-600 hover:bg-rose-700 text-white" 
+                          : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      }`}
+                    >
+                      {isSelectionMode ? (
+                        <>
+                          <X size={12} className="stroke-[2.5]" />
+                          Matikan Checklist
+                        </>
+                      ) : (
+                        <>
+                          <CheckSquare size={12} className="stroke-[2.5]" />
+                          Aktifkan Checklist
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Error Callout state */}
@@ -800,7 +888,7 @@ export default function App() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -15 }}
                     transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+                    className="grid grid-cols-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5 sm:gap-6"
                   >
                     {paginatedProducts.map((product) => (
                       <FlyerCard 

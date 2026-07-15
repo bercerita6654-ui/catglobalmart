@@ -71,22 +71,22 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.25 }}
       onClick={handleCardClick}
-      className={`group relative flex flex-col bg-white rounded-2xl border transition-all duration-300 ease-out overflow-hidden cursor-pointer select-none ${
+      className={`group relative flex flex-col bg-white rounded-xl sm:rounded-2xl border transition-all duration-300 ease-out overflow-hidden cursor-pointer select-none ${
         isSelected 
           ? "border-blue-600 ring-4 ring-blue-100 shadow-lg scale-[1.02]" 
-          : "border-slate-150/80 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 hover:scale-[1.02] hover:-translate-y-1"
+          : "border-slate-150/80 shadow-xs sm:shadow-sm hover:shadow-xl hover:shadow-slate-200/50 hover:scale-[1.02] sm:hover:-translate-y-1"
       }`}
     >
       {/* Floating Selection Checkbox Overlay */}
       {isSelectionMode && (
-        <div className="absolute top-3 right-3 z-30">
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 shadow-sm transition-all duration-200 ${
+        <div className="absolute top-1.5 right-1.5 sm:top-3 sm:right-3 z-30">
+          <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center border sm:border-2 shadow-sm transition-all duration-200 ${
             isSelected 
               ? "bg-blue-600 border-blue-600 text-white scale-110" 
               : "bg-white/90 backdrop-blur-md border-slate-300 text-transparent"
           }`}>
             {isSelected && (
-              <svg className="w-3.5 h-3.5 stroke-[3] stroke-current" fill="none" viewBox="0 0 24 24">
+              <svg className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 stroke-[3] stroke-current" fill="none" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
             )}
@@ -95,31 +95,32 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
       )}
 
       {/* Top badges floating over image */}
-      <div className="absolute top-3 left-3 max-w-[85%] z-10 flex items-center justify-between pointer-events-none">
-        <div className="flex flex-wrap gap-1.5">
+      <div className="absolute top-1.5 left-1.5 sm:top-3 sm:left-3 max-w-[90%] z-10 flex items-center justify-between pointer-events-none">
+        <div className="flex flex-wrap gap-1 sm:gap-1.5">
           {product.merk && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-700 bg-white/90 backdrop-blur-md border border-slate-200/80 px-2.5 py-1 rounded-full uppercase tracking-wide shadow-xs">
-              <Tag size={10} className="stroke-[2.5]" />
-              {product.merk}
+            <span className="inline-flex items-center gap-0.5 sm:gap-1 text-[7px] sm:text-[10px] font-bold text-slate-700 bg-white/90 backdrop-blur-md border border-slate-200/80 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-full uppercase tracking-wide shadow-xs">
+              <Tag size={8} className="sm:size-[10px] stroke-[2.5]" />
+              <span className="truncate max-w-[35px] sm:max-w-none">{product.merk}</span>
             </span>
           )}
           {isNew && (
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-white bg-rose-600 border border-rose-500/80 px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm animate-pulse">
-              <Sparkles size={10} className="fill-current stroke-[2.5]" />
-              New Update
+            <span className="inline-flex items-center gap-0.5 sm:gap-1 text-[7px] sm:text-[10px] font-black text-white bg-rose-600 border border-rose-500/80 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-full uppercase tracking-wider shadow-sm animate-pulse">
+              <Sparkles size={8} className="sm:size-[10px] fill-current stroke-[2.5]" />
+              <span className="inline sm:hidden">New</span>
+              <span className="hidden sm:inline">New Update</span>
             </span>
           )}
         </div>
       </div>
 
       {/* Image container */}
-      <div className="relative aspect-[3/4] bg-zinc-50 overflow-hidden flex items-center justify-center border-b border-slate-100">
+      <div className="relative aspect-[3/4] bg-zinc-50 overflow-hidden flex items-center justify-center sm:border-b sm:border-slate-100">
         {imageUrl && !imgError ? (
           <>
             {imgLoading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-50 gap-2">
-                <div className="w-8 h-8 rounded-full border-2 border-slate-200 border-t-slate-700 animate-spin" />
-                <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Memuat Flyer...</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-50 gap-1.5 sm:gap-2">
+                <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full border-2 border-slate-200 border-t-slate-700 animate-spin" />
+                <span className="text-[8px] sm:text-[10px] font-bold uppercase text-slate-400 tracking-wider">Memuat...</span>
               </div>
             )}
             <img
@@ -139,14 +140,14 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
           </>
         ) : (
           /* Fallback No flyer state */
-          <div className="w-full h-full p-6 flex flex-col items-center justify-center text-center bg-zinc-50 relative">
-            <div className="p-3 rounded-full bg-slate-100 text-slate-400 mb-3 group-hover:scale-110 transition-transform duration-300">
-              <FileImage size={28} className="stroke-[2]" />
+          <div className="w-full h-full p-2 sm:p-6 flex flex-col items-center justify-center text-center bg-zinc-50 relative">
+            <div className="p-1.5 sm:p-3 rounded-full bg-slate-100 text-slate-400 mb-1.5 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
+              <FileImage size={18} className="sm:size-[28px] stroke-[2]" />
             </div>
-            <p className="text-xs font-bold text-slate-600 max-w-[150px] leading-relaxed">
+            <p className="text-[9px] sm:text-xs font-bold text-slate-600 max-w-[150px] leading-relaxed truncate sm:whitespace-normal">
               {imgError ? "Gagal Memuat Gambar" : "Gambar Belum Tersedia"}
             </p>
-            <p className="text-[10px] font-mono text-slate-400 mt-1">
+            <p className="text-[8px] sm:text-[10px] font-mono text-slate-400 mt-0.5 sm:mt-1 truncate">
               {product.barcode || product.code}
             </p>
           </div>
@@ -158,7 +159,7 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 px-4.5 py-2.5 bg-yellow-400 text-blue-950 font-extrabold text-xs rounded-full border border-yellow-300 shadow-lg hover:bg-yellow-500 transition-colors cursor-pointer"
+              className="hidden sm:flex items-center gap-2 px-4.5 py-2.5 bg-yellow-400 text-blue-950 font-extrabold text-xs rounded-full border border-yellow-300 shadow-lg hover:bg-yellow-500 transition-colors cursor-pointer"
             >
               <Eye size={14} className="stroke-[2.5]" />
               Lihat Flyer Detail
@@ -168,7 +169,7 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
       </div>
 
       {/* Info body - Structured as a highly styled retail ticket */}
-      <div className="p-4 flex flex-col flex-grow bg-white">
+      <div className="hidden sm:flex p-4 flex-col flex-grow bg-white">
         {/* Category & Code row */}
         <div className="flex items-center justify-between gap-2 mb-2">
           <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${getCategoryColor(product.kategori)}`}>
