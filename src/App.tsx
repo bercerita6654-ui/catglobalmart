@@ -31,7 +31,8 @@ import {
   calculateStats,
   isWithinLast24Hours,
   getDriveImageUrl,
-  GOOGLE_SHEETS_CSV_URL 
+  GOOGLE_SHEETS_CSV_URL,
+  hasProductImage 
 } from "./utils/dataService";
 import { StatsDashboard } from "./components/StatsDashboard";
 import { FlyerCard } from "./components/FlyerCard";
@@ -50,7 +51,6 @@ export default function App() {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>("");
   const [metricFilter, setMetricFilter] = useState<"all" | "flyer" | "photo" | "recent">("all");
-  const [imagePresenceFilter, setImagePresenceFilter] = useState<"all" | "with_image" | "without_image">("all");
   const [sortBy, setSortBy] = useState<string>("newest");
 
   // Pagination states
@@ -160,7 +160,7 @@ export default function App() {
   // Reset page when any filter, search query, or sorting is updated
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedBrand, selectedSubCategory, metricFilter, imagePresenceFilter, sortBy]);
+  }, [searchQuery, selectedCategory, selectedBrand, selectedSubCategory, metricFilter, sortBy]);
 
   // Fetch data on load
   const loadData = async (isManualRefresh = false) => {
@@ -186,9 +186,9 @@ export default function App() {
     loadData();
   }, []);
 
-  // Include all products from the list, so we can filter by image presence
+  // Only include products that have valid photos or flyer images
   const productsWithFlyers = useMemo(() => {
-    return products;
+    return products.filter((p) => hasProductImage(p));
   }, [products]);
 
   // Filter lists derived from products with flyers
@@ -242,13 +242,6 @@ export default function App() {
       result = result.filter((p) => isWithinLast24Hours(p.lastUpdate || p.lastUpdate1));
     }
 
-    // 5b. Filter by Image Presence (Ada Gambar vs Tidak Ada Gambar)
-    if (imagePresenceFilter === "with_image") {
-      result = result.filter((p) => p.gambarStory !== "" || p.fotoProduk !== "");
-    } else if (imagePresenceFilter === "without_image") {
-      result = result.filter((p) => p.gambarStory === "" && p.fotoProduk === "");
-    }
-
     // 6. Sort results
     result.sort((a, b) => {
       if (sortBy === "newest") {
@@ -286,7 +279,7 @@ export default function App() {
     });
 
     return result;
-  }, [products, searchQuery, selectedCategory, selectedBrand, selectedSubCategory, metricFilter, imagePresenceFilter, sortBy]);
+  }, [products, searchQuery, selectedCategory, selectedBrand, selectedSubCategory, metricFilter, sortBy]);
 
   // Derive total pages
   const totalPages = useMemo(() => {
@@ -306,7 +299,6 @@ export default function App() {
     setSelectedBrand("");
     setSelectedSubCategory("");
     setMetricFilter("all");
-    setImagePresenceFilter("all");
     setSortBy("newest");
     setSelectedProductCodes(new Set());
     setIsSelectionMode(false);
@@ -319,10 +311,9 @@ export default function App() {
       selectedCategory !== "" ||
       selectedBrand !== "" ||
       selectedSubCategory !== "" ||
-      metricFilter !== "all" ||
-      imagePresenceFilter !== "all"
+      metricFilter !== "all"
     );
-  }, [searchQuery, selectedCategory, selectedBrand, selectedSubCategory, metricFilter, imagePresenceFilter]);
+  }, [searchQuery, selectedCategory, selectedBrand, selectedSubCategory, metricFilter]);
 
   // Helper: Generate visible page numbers for pagination
   const getPageNumbers = (): (number | string)[] => {
@@ -520,7 +511,7 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                   
                   {/* Search Input */}
-                  <div className="md:col-span-3 relative">
+                  <div className="md:col-span-4 relative">
                     <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-slate-500">
                       <Search size={16} className="stroke-[2.5]" />
                     </div>
@@ -542,7 +533,7 @@ export default function App() {
                   </div>
 
                   {/* Category Dropdown */}
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-3">
                     <select
                       value={selectedCategory}
                       onChange={(e) => setSelectedCategory(e.target.value)}
@@ -558,7 +549,7 @@ export default function App() {
                   </div>
 
                   {/* Brand Dropdown */}
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-3">
                     <select
                       value={selectedBrand}
                       onChange={(e) => setSelectedBrand(e.target.value)}
@@ -573,21 +564,8 @@ export default function App() {
                     </select>
                   </div>
 
-                  {/* Image Presence Dropdown (Ada Gambar / Tidak Ada Gambar) */}
-                  <div className="md:col-span-2">
-                    <select
-                      value={imagePresenceFilter}
-                      onChange={(e) => setImagePresenceFilter(e.target.value as any)}
-                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-150 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all outline-none text-slate-800 font-semibold shadow-xs cursor-pointer"
-                    >
-                      <option value="all">Semua Gambar</option>
-                      <option value="with_image">Ada Gambar</option>
-                      <option value="without_image">Tidak Ada Gambar</option>
-                    </select>
-                  </div>
-
                   {/* Sorting Dropdown */}
-                  <div className="md:col-span-3 relative">
+                  <div className="md:col-span-2 relative">
                     <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-500">
                       <ArrowUpDown size={14} className="stroke-[2.5]" />
                     </div>
@@ -883,7 +861,7 @@ export default function App() {
               <>
                 <AnimatePresence mode="popLayout">
                   <motion.div
-                    key={`${currentPage}-${searchQuery}-${selectedCategory}-${selectedBrand}-${selectedSubCategory}-${metricFilter}-${imagePresenceFilter}`}
+                    key={`${currentPage}-${searchQuery}-${selectedCategory}-${selectedBrand}-${selectedSubCategory}-${metricFilter}`}
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -15 }}

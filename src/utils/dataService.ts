@@ -61,6 +61,18 @@ export function parseCSV(text: string): string[][] {
 }
 
 /**
+ * Helper to check if a product has a valid image (gambarStory, fotoProduk, or photo)
+ */
+export function hasProductImage(p: ProductFlyer): boolean {
+  const check = (val: string) => {
+    if (!val) return false;
+    const clean = val.trim().toLowerCase();
+    return clean !== "" && clean !== "-" && clean !== "0" && clean !== "null" && clean !== "undefined" && clean !== "none";
+  };
+  return check(p.gambarStory) || check(p.fotoProduk) || check(p.photo);
+}
+
+/**
  * Fetches and processes the product flyers from the spreadsheet
  */
 export async function fetchProductFlyers(): Promise<ProductFlyer[]> {
@@ -113,8 +125,8 @@ export async function fetchProductFlyers(): Promise<ProductFlyer[]> {
           lastUpdate1: getVal(22),  // Col 23
         };
       })
-      // Filter out rows that don't have a code or a description
-      .filter((item) => item.code !== "" && item.description !== "");
+      // Filter out rows that don't have a code, description, or valid image
+      .filter((item) => item.code !== "" && item.description !== "" && hasProductImage(item));
 
     return flyers;
   } catch (error) {
