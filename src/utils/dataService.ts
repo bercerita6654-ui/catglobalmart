@@ -64,27 +64,36 @@ export function parseCSV(text: string): string[][] {
  * Helper to check if a product has a valid image (gambarStory, fotoProduk, or photo)
  */
 export function hasProductImage(p: ProductFlyer): boolean {
-  const check = (val: string) => {
-    if (!val) return false;
-    const clean = val.trim().toLowerCase();
-    if (
-      clean === "" ||
-      clean === "-" ||
-      clean === "0" ||
-      clean === "null" ||
-      clean === "undefined" ||
-      clean === "none" ||
-      clean.includes("belum tersedia") ||
-      clean.includes("tidak ada") ||
-      clean.includes("kosong") ||
-      clean.includes("no image") ||
-      clean.includes("not available")
-    ) {
-      return false;
-    }
-    return true;
-  };
-  return check(p.gambarStory) || check(p.fotoProduk) || check(p.photo);
+  if (!p.gambarStory) return false;
+  const clean = p.gambarStory.trim().toLowerCase();
+  if (
+    clean === "" ||
+    clean === "-" ||
+    clean === "0" ||
+    clean === "null" ||
+    clean === "undefined" ||
+    clean === "none" ||
+    clean.includes("belum tersedia") ||
+    clean.includes("tidak ada") ||
+    clean.includes("kosong") ||
+    clean.includes("no image") ||
+    clean.includes("not available")
+  ) {
+    return false;
+  }
+
+  const infoCheck = p.info ? p.info.trim().toLowerCase() : "";
+  const statCheck = p.stat ? p.stat.trim().toLowerCase() : "";
+  if (
+    infoCheck.includes("belum tersedia") ||
+    infoCheck.includes("tidak ada") ||
+    statCheck.includes("belum tersedia") ||
+    statCheck.includes("tidak ada")
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -116,7 +125,7 @@ export async function fetchProductFlyers(): Promise<ProductFlyer[]> {
 
         const qtyParsed = parseInt(getVal(12).replace(/[^\d-]/g, "")) || 0;
 
-        return {
+        const flyer: ProductFlyer = {
           code: getVal(0),
           barcode: getVal(1),
           description: getVal(2),
@@ -139,6 +148,8 @@ export async function fetchProductFlyers(): Promise<ProductFlyer[]> {
           fotoProduk: getVal(21),  // Col 22
           lastUpdate1: getVal(22),  // Col 23
         };
+
+        return flyer;
       })
       // Filter out rows that don't have a code, description, or valid image
       .filter((item) => item.code !== "" && item.description !== "" && hasProductImage(item));
