@@ -67,7 +67,22 @@ export function hasProductImage(p: ProductFlyer): boolean {
   const check = (val: string) => {
     if (!val) return false;
     const clean = val.trim().toLowerCase();
-    return clean !== "" && clean !== "-" && clean !== "0" && clean !== "null" && clean !== "undefined" && clean !== "none";
+    if (
+      clean === "" ||
+      clean === "-" ||
+      clean === "0" ||
+      clean === "null" ||
+      clean === "undefined" ||
+      clean === "none" ||
+      clean.includes("belum tersedia") ||
+      clean.includes("tidak ada") ||
+      clean.includes("kosong") ||
+      clean.includes("no image") ||
+      clean.includes("not available")
+    ) {
+      return false;
+    }
+    return true;
   };
   return check(p.gambarStory) || check(p.fotoProduk) || check(p.photo);
 }
