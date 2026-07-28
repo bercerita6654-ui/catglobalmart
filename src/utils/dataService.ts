@@ -143,10 +143,10 @@ export async function fetchProductFlyers(): Promise<ProductFlyer[]> {
           photo: getVal(14),
           info: getVal(15),
           open: getVal(16),
-          gambarStory: getVal(19), // Col 20
-          lastUpdate: getVal(20),   // Col 21
-          fotoProduk: getVal(21),  // Col 22
-          lastUpdate1: getVal(22),  // Col 23
+          gambarStory: getVal(21), // Col V (Index 21) - ID Gambar
+          lastUpdate: getVal(22),   // Col W (Index 22) - Tanggal Update Gambar
+          fotoProduk: getVal(21),  // Col V
+          lastUpdate1: getVal(22),  // Col W
         };
 
         return flyer;
