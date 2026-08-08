@@ -161,7 +161,7 @@ export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ type: "spring", duration: 0.5, bounce: 0.15 }}
-          className="relative w-full max-w-4xl bg-white rounded-3xl border border-slate-100 shadow-2xl flex flex-col overflow-hidden max-h-[92vh] p-4 sm:p-6 z-10"
+          className="relative w-full max-w-6xl bg-white rounded-3xl border border-slate-100 shadow-2xl flex flex-col overflow-hidden max-h-[92vh] p-4 sm:p-6 z-10"
         >
           {/* Close button top right */}
           <button
@@ -172,7 +172,7 @@ export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({
             <X size={20} className="stroke-[2.5]" />
           </button>
 
-          {/* Header */}
+          {/* Top Title & Badges Header */}
           <div className="mb-4 pr-10">
             <div className="flex flex-wrap items-center gap-2 mb-1.5">
               <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-100">
@@ -204,85 +204,100 @@ export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({
               )}
             </div>
 
-            <h3 className="text-base sm:text-lg font-black text-slate-950 tracking-tight leading-snug">
+            <h3 className="text-base sm:text-lg lg:text-xl font-black text-slate-950 tracking-tight leading-snug">
               {primaryProduct.description}
             </h3>
           </div>
 
-          {/* Main content body: Image + SKU Variations table */}
-          <div className="flex-grow overflow-y-auto pr-1 space-y-5">
-            {/* Flyer Image Container */}
-            <div 
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              className="relative flex items-center justify-center bg-slate-100/80 rounded-2xl border border-slate-200 overflow-hidden p-2 min-h-[260px] sm:min-h-[380px] max-h-[50vh] group"
-            >
-              {/* Left navigation arrow */}
-              {onPrev && (
-                <button
-                  onClick={onPrev}
-                  className="absolute left-3.5 z-20 p-2 sm:p-2.5 rounded-full bg-white/90 hover:bg-white backdrop-blur-md border border-slate-200 text-slate-800 hover:text-blue-900 shadow-md transition-all cursor-pointer opacity-85 hover:opacity-100 active:scale-90"
-                  aria-label="Flyer Sebelumnya"
-                >
-                  <ChevronLeft size={22} className="stroke-[2.5]" />
-                </button>
-              )}
+          {/* Main Content Split: Left (Catalog Image) + Right (SKU / Variation List) */}
+          <div className="flex-grow overflow-y-auto pr-1 lg:overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
+            {/* Left Side: Catalog Image & Download */}
+            <div className="lg:col-span-5 xl:col-span-6 flex flex-col gap-3 h-full justify-between">
+              {/* Flyer Image Container */}
+              <div 
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                className="relative flex items-center justify-center bg-slate-100/80 rounded-2xl border border-slate-200 overflow-hidden p-2 min-h-[260px] sm:min-h-[360px] lg:min-h-[420px] max-h-[50vh] lg:max-h-[58vh] group flex-grow"
+              >
+                {/* Left navigation arrow */}
+                {onPrev && (
+                  <button
+                    onClick={onPrev}
+                    className="absolute left-3.5 z-20 p-2 sm:p-2.5 rounded-full bg-white/90 hover:bg-white backdrop-blur-md border border-slate-200 text-slate-800 hover:text-blue-900 shadow-md transition-all cursor-pointer opacity-85 hover:opacity-100 active:scale-90"
+                    aria-label="Flyer Sebelumnya"
+                  >
+                    <ChevronLeft size={22} className="stroke-[2.5]" />
+                  </button>
+                )}
 
-              {/* Right navigation arrow */}
-              {onNext && (
-                <button
-                  onClick={onNext}
-                  className="absolute right-3.5 z-20 p-2 sm:p-2.5 rounded-full bg-white/90 hover:bg-white backdrop-blur-md border border-slate-200 text-slate-800 hover:text-blue-900 shadow-md transition-all cursor-pointer opacity-85 hover:opacity-100 active:scale-90"
-                  aria-label="Flyer Berikutnya"
-                >
-                  <ChevronRight size={22} className="stroke-[2.5]" />
-                </button>
-              )}
+                {/* Right navigation arrow */}
+                {onNext && (
+                  <button
+                    onClick={onNext}
+                    className="absolute right-3.5 z-20 p-2 sm:p-2.5 rounded-full bg-white/90 hover:bg-white backdrop-blur-md border border-slate-200 text-slate-800 hover:text-blue-900 shadow-md transition-all cursor-pointer opacity-85 hover:opacity-100 active:scale-90"
+                    aria-label="Flyer Berikutnya"
+                  >
+                    <ChevronRight size={22} className="stroke-[2.5]" />
+                  </button>
+                )}
 
-              {activeImageUrl && !imgError ? (
-                <>
-                  {imgLoading && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 gap-2 z-10">
-                      <div className="w-9 h-9 rounded-full border-2 border-slate-300 border-t-blue-900 animate-spin" />
-                      <span className="text-xs font-bold text-slate-600">Mengunduh gambar catalog...</span>
+                {activeImageUrl && !imgError ? (
+                  <>
+                    {imgLoading && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 gap-2 z-10">
+                        <div className="w-9 h-9 rounded-full border-2 border-slate-300 border-t-blue-900 animate-spin" />
+                        <span className="text-xs font-bold text-slate-600">Mengunduh gambar catalog...</span>
+                      </div>
+                    )}
+                    <img
+                      src={activeImageUrl}
+                      alt={primaryProduct.description}
+                      referrerPolicy="no-referrer"
+                      onLoad={() => setImgLoading(false)}
+                      onError={() => {
+                        setImgError(true);
+                        setImgLoading(false);
+                      }}
+                      className={`max-h-[46vh] lg:max-h-[54vh] max-w-full object-contain transition-all duration-300 rounded-xl select-none pointer-events-none ${
+                        imgLoading ? "scale-95 opacity-0" : "scale-100 opacity-100"
+                      }`}
+                    />
+                  </>
+                ) : (
+                  /* No Image Attached / Error Placeholder */
+                  <div className="p-8 text-center flex flex-col items-center justify-center">
+                    <div className="p-3.5 rounded-full bg-slate-100 text-slate-400 mb-3">
+                      <FileImage size={32} className="stroke-[2]" />
                     </div>
-                  )}
-                  <img
-                    src={activeImageUrl}
-                    alt={primaryProduct.description}
-                    referrerPolicy="no-referrer"
-                    onLoad={() => setImgLoading(false)}
-                    onError={() => {
-                      setImgError(true);
-                      setImgLoading(false);
-                    }}
-                    className={`max-h-[46vh] max-w-full object-contain transition-all duration-300 rounded-xl select-none pointer-events-none ${
-                      imgLoading ? "scale-95 opacity-0" : "scale-100 opacity-100"
-                    }`}
-                  />
-                </>
-              ) : (
-                /* No Image Attached / Error Placeholder */
-                <div className="p-8 text-center flex flex-col items-center justify-center">
-                  <div className="p-3.5 rounded-full bg-slate-100 text-slate-400 mb-3">
-                    <FileImage size={32} className="stroke-[2]" />
+                    <p className="text-sm font-bold text-slate-800">
+                      {imgError ? "Gagal Memuat Gambar" : "Gambar Belum Tersedia"}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-2 max-w-[200px] leading-relaxed font-semibold">
+                      {imgError 
+                        ? "Terjadi masalah saat mengakses server Google Drive."
+                        : "Catalog ini belum memiliki lampiran berkas gambar flyer."}
+                    </p>
                   </div>
-                  <p className="text-sm font-bold text-slate-800">
-                    {imgError ? "Gagal Memuat Gambar" : "Gambar Belum Tersedia"}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-2 max-w-[200px] leading-relaxed font-semibold">
-                    {imgError 
-                      ? "Terjadi masalah saat mengakses server Google Drive."
-                      : "Catalog ini belum memiliki lampiran berkas gambar flyer."}
-                  </p>
-                </div>
+                )}
+              </div>
+
+              {/* Download Button under image */}
+              {activeImageId && (
+                <button
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="w-full flex items-center justify-center gap-2.5 py-3 px-4 bg-blue-900 hover:bg-blue-800 text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md shadow-blue-900/10 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                >
+                  <Download size={17} className="stroke-[2.5]" />
+                  <span>{downloading ? "Sedang Mengunduh..." : `Unduh Gambar Catalog (${totalVariations} SKU)`}</span>
+                </button>
               )}
             </div>
 
-            {/* List of SKU Variations Section */}
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200/80">
+            {/* Right Side: List of SKU Variations */}
+            <div className="lg:col-span-7 xl:col-span-6 bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col h-full overflow-hidden">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200/80 shrink-0">
                 <div className="flex items-center gap-2">
                   <Package size={16} className="text-blue-900 stroke-[2.5]" />
                   <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900">
@@ -295,8 +310,8 @@ export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({
                 </span>
               </div>
 
-              {/* Variations Table / Responsive Cards */}
-              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+              {/* Scrollable Variations List */}
+              <div className="space-y-2 overflow-y-auto pr-1 flex-grow max-h-[350px] lg:max-h-[52vh]">
                 {variations.map((v, index) => (
                   <div 
                     key={v.code + "_" + index}
@@ -342,20 +357,6 @@ export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Bottom Action: Download Catalog Image */}
-          {activeImageId && (
-            <div className="mt-4 pt-3 border-t border-slate-100">
-              <button
-                onClick={handleDownload}
-                disabled={downloading}
-                className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 bg-blue-900 hover:bg-blue-800 text-white rounded-2xl font-bold text-sm shadow-md shadow-blue-900/10 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Download size={18} className="stroke-[2.5]" />
-                <span>{downloading ? "Sedang Mengunduh Catalog..." : `Unduh Gambar Catalog (${totalVariations} SKU)`}</span>
-              </button>
-            </div>
-          )}
         </motion.div>
       </div>
     </AnimatePresence>
