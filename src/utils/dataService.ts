@@ -1,7 +1,8 @@
-import { ProductFlyer, Stats } from "../types";
+import { ProductFlyer, GroupedCatalogFlyer, Stats } from "../types";
 
-// The published CSV Google Sheets URL
+// The published CSV Google Sheets URLs
 export const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTCxz1GPm7QU9IS1yBiSjvIdNTLUsvvplOCyT_R3XH4O-LuVbHoY_bXn1LTH5lpnlolJ29BhUgEdnFm/pub?gid=1564332470&single=true&output=csv";
+export const GOOGLE_SHEETS_VARIATION_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTCxz1GPm7QU9IS1yBiSjvIdNTLUsvvplOCyT_R3XH4O-LuVbHoY_bXn1LTH5lpnlolJ29BhUgEdnFm/pub?gid=2014848858&single=true&output=csv";
 
 /**
  * Custom robust CSV parser to handle nested quotes, commas, and escaping correctly.
@@ -61,6 +62,44 @@ export function parseCSV(text: string): string[][] {
 }
 
 /**
+ * Fetches variation mappings from the published "variasi" sheet
+ */
+export async function fetchVariationMap(): Promise<{
+  codeMap: Map<string, string>;
+  barcodeMap: Map<string, string>;
+}> {
+  const codeMap = new Map<string, string>();
+  const barcodeMap = new Map<string, string>();
+
+  try {
+    const response = await fetch(`${GOOGLE_SHEETS_VARIATION_CSV_URL}&_cb=${Date.now()}`);
+    if (!response.ok) return { codeMap, barcodeMap };
+
+    const csvText = await response.text();
+    const rows = parseCSV(csvText);
+
+    if (rows.length < 2) return { codeMap, barcodeMap };
+
+    // Col 0: SKU/code, Col 1: barcode, Col 2: variasi
+    const dataRows = rows.slice(1);
+    dataRows.forEach((row) => {
+      const sku = (row[0] || "").trim().toLowerCase();
+      const barcode = (row[1] || "").trim().toLowerCase();
+      const variasi = (row[2] || "").trim();
+
+      if (variasi !== "") {
+        if (sku !== "") codeMap.set(sku, variasi);
+        if (barcode !== "") barcodeMap.set(barcode, variasi);
+      }
+    });
+  } catch (error) {
+    console.warn("Failed to fetch variation sheet:", error);
+  }
+
+  return { codeMap, barcodeMap };
+}
+
+/**
  * Helper to check if a product has a valid image (gambarStory, fotoProduk, or photo)
  */
 export function hasProductImage(p: ProductFlyer): boolean {
@@ -101,33 +140,41 @@ export function hasProductImage(p: ProductFlyer): boolean {
  */
 export async function fetchProductFlyers(): Promise<ProductFlyer[]> {
   try {
-    // Add a timestamp parameter to force-bypass caching if needed, or simply load
-    const response = await fetch(`${GOOGLE_SHEETS_CSV_URL}&_cb=${Date.now()}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch spreadsheet data (Status ${response.status})`);
+    const [productsRes, variationData] = await Promise.all([
+      fetch(`${GOOGLE_SHEETS_CSV_URL}&_cb=${Date.now()}`),
+      fetchVariationMap().catch(() => ({ codeMap: new Map(), barcodeMap: new Map() })),
+    ]);
+
+    if (!productsRes.ok) {
+      throw new Error(`Failed to fetch spreadsheet data (Status ${productsRes.status})`);
     }
 
-    const csvText = await response.text();
+    const csvText = await productsRes.text();
     const rows = parseCSV(csvText);
 
     if (rows.length < 2) {
       return [];
     }
 
-    // First row is the headers
-    const headers = rows[0].map(h => h.trim().toLowerCase());
     const dataRows = rows.slice(1);
+    const { codeMap, barcodeMap } = variationData;
 
     const flyers: ProductFlyer[] = dataRows
       .map((row) => {
-        // Ensure we don't crash if row is too short
         const getVal = (index: number) => (row[index] || "").trim();
 
         const qtyParsed = parseInt(getVal(12).replace(/[^\d-]/g, "")) || 0;
+        const code = getVal(0);
+        const barcode = getVal(1);
+
+        const variasiCode = 
+          codeMap.get(code.toLowerCase()) || 
+          barcodeMap.get(barcode.toLowerCase()) || 
+          "";
 
         const flyer: ProductFlyer = {
-          code: getVal(0),
-          barcode: getVal(1),
+          code,
+          barcode,
           description: getVal(2),
           unit: getVal(3),
           kategori: getVal(4),
@@ -147,6 +194,7 @@ export async function fetchProductFlyers(): Promise<ProductFlyer[]> {
           lastUpdate: getVal(22),   // Col W (Index 22) - Tanggal Update Gambar
           fotoProduk: getVal(21),  // Col V
           lastUpdate1: getVal(22),  // Col W
+          variasiCode: variasiCode !== "" ? variasiCode : undefined,
         };
 
         return flyer;
@@ -290,4 +338,118 @@ export function getDriveImageUrl(id: string): string {
 export function getDriveDownloadUrl(id: string): string {
   if (!id) return "";
   return `https://drive.google.com/uc?export=download&id=${id}`;
+}
+
+/**
+ * Groups product flyers by their variation code (from "variasi" sheet) or catalog image (gambarStory).
+ * Combines multiple SKU variations into 1 GroupedCatalogFlyer.
+ */
+export function groupFlyersByCatalogImage(flyers: ProductFlyer[]): GroupedCatalogFlyer[] {
+  if (flyers.length === 0) return [];
+
+  const n = flyers.length;
+  const parent = Array.from({ length: n }, (_, i) => i);
+
+  function find(i: number): number {
+    if (parent[i] === i) return i;
+    parent[i] = find(parent[i]);
+    return parent[i];
+  }
+
+  function union(i: number, j: number) {
+    const rootI = find(i);
+    const rootJ = find(j);
+    if (rootI !== rootJ) {
+      parent[rootI] = rootJ;
+    }
+  }
+
+  // Key map to connect product indices that share the same key
+  const keyToFirstIndex = new Map<string, number>();
+
+  flyers.forEach((flyer, index) => {
+    const keys: string[] = [];
+
+    // Key 1: variasiCode from "variasi" sheet
+    if (flyer.variasiCode && flyer.variasiCode.trim() !== "") {
+      keys.push(`var_${flyer.variasiCode.trim().toLowerCase()}`);
+    }
+
+    // Key 2: catalog image ID (gambarStory)
+    if (flyer.gambarStory && flyer.gambarStory.trim() !== "") {
+      keys.push(`img_${flyer.gambarStory.trim()}`);
+    }
+
+    // Fallback: SKU code if neither variation code nor image exists
+    if (keys.length === 0) {
+      keys.push(`sku_${flyer.code.trim().toLowerCase()}`);
+    }
+
+    keys.forEach((k) => {
+      if (keyToFirstIndex.has(k)) {
+        union(index, keyToFirstIndex.get(k)!);
+      } else {
+        keyToFirstIndex.set(k, index);
+      }
+    });
+  });
+
+  // Collect grouped products
+  const rootMap = new Map<number, ProductFlyer[]>();
+  for (let i = 0; i < n; i++) {
+    const root = find(i);
+    if (!rootMap.has(root)) {
+      rootMap.set(root, []);
+    }
+    rootMap.get(root)!.push(flyers[i]);
+  }
+
+  const groupedList: GroupedCatalogFlyer[] = [];
+
+  rootMap.forEach((variations) => {
+    // Pick primary product (preferably one with a valid catalog image)
+    const primaryProduct =
+      variations.find((v) => v.gambarStory && v.gambarStory.trim() !== "") ||
+      variations[0];
+
+    // Check recent updates
+    let latestUpdate = primaryProduct.lastUpdate || primaryProduct.lastUpdate1 || "";
+    let hasNewUpdate = isWithinLast24Hours(latestUpdate);
+
+    variations.forEach((v) => {
+      const vDate = v.lastUpdate || v.lastUpdate1 || "";
+      if (isWithinLast24Hours(vDate)) {
+        hasNewUpdate = true;
+      }
+    });
+
+    const foundVarCode = variations.find((v) => v.variasiCode && v.variasiCode.trim() !== "")?.variasiCode || "";
+    const foundImgId = primaryProduct.gambarStory || variations.find((v) => v.gambarStory)?.gambarStory || "";
+
+    const groupId = foundVarCode
+      ? `var_${foundVarCode}`
+      : foundImgId
+      ? `img_${foundImgId}`
+      : `sku_${primaryProduct.code}`;
+
+    const brandsSet = new Set(variations.map((v) => v.merk).filter(Boolean));
+    const categoriesSet = new Set(variations.map((v) => v.kategori).filter(Boolean));
+    const subCategoriesSet = new Set(variations.map((v) => v.subKategori).filter(Boolean));
+
+    groupedList.push({
+      id: groupId,
+      gambarStory: foundImgId,
+      variasiCode: foundVarCode,
+      primaryProduct,
+      variations,
+      totalVariations: variations.length,
+      merk: Array.from(brandsSet).join(", ") || primaryProduct.merk,
+      kategori: Array.from(categoriesSet).join(", ") || primaryProduct.kategori,
+      subKategori: Array.from(subCategoriesSet).join(", ") || primaryProduct.subKategori,
+      lastUpdate: latestUpdate,
+      isNew: hasNewUpdate,
+    });
+  });
+
+  return groupedList;
 }

@@ -4,11 +4,8 @@ import {
   Search, 
   RefreshCw, 
   X, 
-  HelpCircle, 
-  Info, 
   SlidersHorizontal, 
   ArrowUpDown, 
-  TrendingUp, 
   Grid2X2,
   Layers3,
   Calendar,
@@ -21,17 +18,18 @@ import {
   DownloadCloud,
   CheckSquare,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Layers
 } from "lucide-react";
 
-import { ProductFlyer, Stats } from "./types";
+import { ProductFlyer, GroupedCatalogFlyer, Stats } from "./types";
 import { 
   fetchProductFlyers, 
   extractFilterOptions, 
   calculateStats,
   isWithinLast24Hours,
   getDriveImageUrl,
-  GOOGLE_SHEETS_CSV_URL,
+  groupFlyersByCatalogImage,
   hasProductImage 
 } from "./utils/dataService";
 import { StatsDashboard } from "./components/StatsDashboard";
@@ -44,6 +42,9 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Grouping view mode: default true (Grouped by Catalog Image)
+  const [groupByCatalog, setGroupByCatalog] = useState<boolean>(true);
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -58,8 +59,7 @@ export default function App() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(24);
 
   // Interaction states
-  const [selectedProduct, setSelectedProduct] = useState<ProductFlyer | null>(null);
-  const [showDriveInfo, setShowDriveInfo] = useState<boolean>(false);
+  const [selectedItem, setSelectedItem] = useState<GroupedCatalogFlyer | ProductFlyer | null>(null);
 
   // Bulk Download States
   const [downloadingZip, setDownloadingZip] = useState<boolean>(false);
@@ -69,7 +69,7 @@ export default function App() {
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   const [selectedProductCodes, setSelectedProductCodes] = useState<Set<string>>(new Set());
 
-  // Filter panel collapse state (Closed by default on mobile, open by default on desktop)
+  // Filter panel collapse state
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState<boolean>(true);
   const [isBulkPanelOpen, setIsBulkPanelOpen] = useState<boolean>(true);
 
@@ -87,34 +87,42 @@ export default function App() {
   // Handler to toggle custom selection mode
   const handleToggleSelectionMode = () => {
     setIsSelectionMode(!isSelectionMode);
-    setSelectedProductCodes(new Set()); // Clear any previous selection
+    setSelectedProductCodes(new Set());
   };
 
   // Helper to package and download flyer images as a ZIP archive
   const downloadFlyersAsZip = async (productsToDownload: ProductFlyer[], zipFileName: string) => {
-    // Only download products that actually have valid flyer images
-    const productsWithImages = productsToDownload.filter(p => p.gambarStory !== "" || p.fotoProduk !== "");
+    // Group products by catalog image ID to ensure no duplicate image downloads
+    const uniqueMap = new Map<string, ProductFlyer>();
+    productsToDownload.forEach(p => {
+      const key = p.gambarStory && p.gambarStory.trim() !== "" ? p.gambarStory.trim() : p.code;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, p);
+      }
+    });
+
+    const uniqueProducts = Array.from(uniqueMap.values()).filter(p => p.gambarStory !== "" || p.fotoProduk !== "");
     
-    if (productsWithImages.length === 0) {
+    if (uniqueProducts.length === 0) {
       alert("Tidak ada gambar flyer yang tersedia untuk produk terpilih.");
       return;
     }
 
     setDownloadingZip(true);
-    setDownloadProgress({ current: 0, total: productsWithImages.length, label: "Mengkoneksikan..." });
+    setDownloadProgress({ current: 0, total: uniqueProducts.length, label: "Mengkoneksikan..." });
 
     try {
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
 
-      for (let i = 0; i < productsWithImages.length; i++) {
-        const product = productsWithImages[i];
+      for (let i = 0; i < uniqueProducts.length; i++) {
+        const product = uniqueProducts[i];
         const imageId = product.gambarStory || product.fotoProduk;
         const imageUrl = getDriveImageUrl(imageId);
 
         setDownloadProgress({
           current: i + 1,
-          total: productsWithImages.length,
+          total: uniqueProducts.length,
           label: `${product.description.substring(0, 20)}...`
         });
 
@@ -123,7 +131,6 @@ export default function App() {
           if (!response.ok) throw new Error(`HTTP error ${response.status}`);
           const blob = await response.blob();
           
-          // Clean product description for a safe, valid file name
           const cleanDesc = product.description.replace(/[\\/:*?"<>|]/g, "_").substring(0, 45);
           const fileName = `${product.code} - ${cleanDesc}.jpg`;
           
@@ -134,8 +141,8 @@ export default function App() {
       }
 
       setDownloadProgress({
-        current: productsWithImages.length,
-        total: productsWithImages.length,
+        current: uniqueProducts.length,
+        total: uniqueProducts.length,
         label: "Mengemas ke format ZIP..."
       });
 
@@ -160,7 +167,7 @@ export default function App() {
   // Reset page when any filter, search query, or sorting is updated
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedBrand, selectedSubCategory, metricFilter, sortBy]);
+  }, [searchQuery, selectedCategory, selectedBrand, selectedSubCategory, metricFilter, sortBy, groupByCatalog]);
 
   // Fetch data on load
   const loadData = async (isManualRefresh = false) => {
@@ -201,7 +208,7 @@ export default function App() {
     return calculateStats(productsWithFlyers);
   }, [productsWithFlyers]);
 
-  // Filtered & Sorted products
+  // Filtered & Sorted products (Individual SKUs)
   const filteredProducts = useMemo(() => {
     let result = [...productsWithFlyers];
 
@@ -245,8 +252,6 @@ export default function App() {
     // 6. Sort results
     result.sort((a, b) => {
       if (sortBy === "newest") {
-        // Compare date strings (format: DD-MM-YYYY HH:mm:ss)
-        // If empty, sort to end
         const timeA = parseDateStringToTime(a.lastUpdate || a.lastUpdate1);
         const timeB = parseDateStringToTime(b.lastUpdate || b.lastUpdate1);
         return timeB - timeA;
@@ -262,35 +267,32 @@ export default function App() {
       if (sortBy === "name_desc") {
         return b.description.localeCompare(a.description);
       }
-      if (sortBy === "price_asc") {
-        const priceA = parseNumericPrice(a.hrgBaru || a.eceran);
-        const priceB = parseNumericPrice(b.hrgBaru || b.eceran);
-        return priceA - priceB;
-      }
-      if (sortBy === "price_desc") {
-        const priceA = parseNumericPrice(a.hrgBaru || a.eceran);
-        const priceB = parseNumericPrice(b.hrgBaru || b.eceran);
-        return priceB - priceA;
-      }
-      if (sortBy === "stock_desc") {
-        return b.qty - a.qty;
-      }
       return 0;
     });
 
     return result;
-  }, [products, searchQuery, selectedCategory, selectedBrand, selectedSubCategory, metricFilter, sortBy]);
+  }, [productsWithFlyers, searchQuery, selectedCategory, selectedBrand, selectedSubCategory, metricFilter, sortBy]);
+
+  // Grouped products list by Catalog Image
+  const groupedProducts = useMemo(() => {
+    return groupFlyersByCatalogImage(filteredProducts);
+  }, [filteredProducts]);
+
+  // Items to display depending on view mode
+  const displayItems = useMemo(() => {
+    return groupByCatalog ? groupedProducts : filteredProducts;
+  }, [groupByCatalog, groupedProducts, filteredProducts]);
 
   // Derive total pages
   const totalPages = useMemo(() => {
-    return Math.ceil(filteredProducts.length / itemsPerPage) || 1;
-  }, [filteredProducts, itemsPerPage]);
+    return Math.ceil(displayItems.length / itemsPerPage) || 1;
+  }, [displayItems, itemsPerPage]);
 
-  // Derive paginated products
-  const paginatedProducts = useMemo(() => {
+  // Derive paginated items
+  const paginatedItems = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredProducts, currentPage, itemsPerPage]);
+    return displayItems.slice(startIndex, startIndex + itemsPerPage);
+  }, [displayItems, currentPage, itemsPerPage]);
 
   // Clean filters helper
   const handleResetFilters = () => {
@@ -315,7 +317,7 @@ export default function App() {
     );
   }, [searchQuery, selectedCategory, selectedBrand, selectedSubCategory, metricFilter]);
 
-  // Helper: Generate visible page numbers for pagination
+  // Generate visible page numbers
   const getPageNumbers = (): (number | string)[] => {
     const pages: (number | string)[] = [];
     const maxVisiblePages = 5;
@@ -325,7 +327,6 @@ export default function App() {
         pages.push(i);
       }
     } else {
-      // Always include 1
       pages.push(1);
       
       let start = Math.max(2, currentPage - 1);
@@ -349,14 +350,12 @@ export default function App() {
         pages.push("...");
       }
       
-      // Always include last page
       pages.push(totalPages);
     }
     
     return pages;
   };
 
-  // Helper: Extract date time number
   function parseDateStringToTime(dateStr: string): number {
     if (!dateStr || dateStr.trim() === "") return 0;
     try {
@@ -379,14 +378,6 @@ export default function App() {
     }
   }
 
-  // Helper: parse Indonesian style currency dot format
-  function parseNumericPrice(priceStr: string): number {
-    if (!priceStr) return 0;
-    const cleanStr = priceStr.replace(/[^\d]/g, "");
-    return parseInt(cleanStr, 10) || 0;
-  }
-
-  // Live Date label in Indonesian for Header
   const getTodayDateString = () => {
     const today = new Date();
     const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
@@ -397,13 +388,41 @@ export default function App() {
     return `${days[today.getDay()]}, ${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
   };
 
+  // Toggle selection for grouped item or single item
+  const handleToggleSelectCodeOrGroup = (codeOrId: string) => {
+    setSelectedProductCodes((prev) => {
+      const next = new Set(prev);
+      
+      if (groupByCatalog) {
+        const targetGroup = groupedProducts.find(g => g.id === codeOrId);
+        if (targetGroup) {
+          const allCodesInGroup = targetGroup.variations.map(v => v.code);
+          const isFullySelected = allCodesInGroup.every(c => next.has(c));
+          
+          if (isFullySelected) {
+            allCodesInGroup.forEach(c => next.delete(c));
+          } else {
+            allCodesInGroup.forEach(c => next.add(c));
+          }
+        }
+      } else {
+        if (next.has(codeOrId)) {
+          next.delete(codeOrId);
+        } else {
+          next.add(codeOrId);
+        }
+      }
+
+      return next;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/60 flex flex-col font-sans text-slate-900 selection:bg-yellow-400 selection:text-blue-950">
-      {/* Top Banner & Navigation Header in Blue, Yellow, White theme */}
+      {/* Top Banner & Header */}
       <header className="sticky top-0 z-30 bg-blue-900 text-white border-b border-blue-950 shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
           
-          {/* Logo & Brand text */}
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-yellow-400 flex items-center justify-center text-blue-950 shadow-md shrink-0">
               <Layers3 size={20} className="stroke-[2.5] text-blue-950" />
@@ -421,15 +440,12 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right Action buttons (Refresh & Date badge) */}
           <div className="flex items-center gap-2 md:gap-3">
-            {/* Today Date (Desktop) */}
             <div className="hidden lg:flex items-center gap-2 bg-white/10 border border-white/20 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-100 shadow-xs">
               <Calendar size={13} className="text-yellow-400 stroke-[2.5]" />
               <span>{getTodayDateString()}</span>
             </div>
 
-            {/* Manual Refresh Trigger in vibrant Yellow */}
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => loadData(true)}
@@ -443,17 +459,17 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Body container */}
+      {/* Main Body */}
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Statistics Dashboard widgets - acts as quick filters */}
+        {/* Statistics Dashboard */}
         <StatsDashboard 
           stats={stats} 
           activeFilter={metricFilter} 
           onFilterChange={(filterKey) => setMetricFilter(filterKey)} 
         />
 
-        {/* Main interactive search, filter and sorting panel */}
+        {/* Filter & Search Panel */}
         <div className="sticky top-[80px] z-20 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/80 shadow-lg p-4 mb-6">
           <div 
             onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
@@ -466,7 +482,6 @@ export default function App() {
               <h3 className="text-xs font-bold uppercase tracking-widest text-slate-755">
                 Panel Filter & Cari
               </h3>
-              {/* Active filters indicator */}
               {isAnyFilterActive && (
                 <span className="bg-blue-100 text-blue-800 text-[9px] sm:text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
                   Aktif
@@ -475,7 +490,6 @@ export default function App() {
             </div>
             
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              {/* Active filters counter / Clear triggers */}
               {isAnyFilterActive && (
                 <button
                   onClick={handleResetFilters}
@@ -519,7 +533,7 @@ export default function App() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Cari deskripsi, kode, barcode..."
+                      placeholder="Cari deskripsi, kode SKU, barcode..."
                       className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-150 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all outline-none text-slate-800 font-semibold shadow-xs"
                     />
                     {searchQuery && (
@@ -583,7 +597,7 @@ export default function App() {
 
                 </div>
 
-                {/* Sub-Category pills (Dynamic row depending on selected Category) */}
+                {/* Sub-Category pills */}
                 {selectedCategory && subCategories.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Sub Kategori:</span>
@@ -599,7 +613,6 @@ export default function App() {
                     </button>
                     {subCategories
                       .filter((sub) => {
-                        // Only show subcategories that exist in the selected category
                         return productsWithFlyers.some((p) => p.kategori === selectedCategory && p.subKategori === sub);
                       })
                       .filter(Boolean)
@@ -623,7 +636,7 @@ export default function App() {
           </AnimatePresence>
         </div>
 
-        {/* Bulk Download Panel - Compact & Integrated style */}
+        {/* Bulk Download Panel */}
         <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 mb-6 text-slate-800">
           <div 
             onClick={() => setIsBulkPanelOpen(!isBulkPanelOpen)}
@@ -819,21 +832,59 @@ export default function App() {
         ) : (
           /* Products Display Grid / Empty state */
           <>
-            {/* Header counters */}
+            {/* Header counters and Grouping View Toggle */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                {filteredProducts.length > 0 ? (
-                  <>
-                    Menampilkan <span className="text-sky-600 font-extrabold">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</span> dari <span className="text-slate-900 font-extrabold">{filteredProducts.length}</span> Flyer (Halaman {currentPage} dari {totalPages})
-                  </>
-                ) : (
-                  `Menampilkan 0 dari ${filteredProducts.length} Flyer`
+              
+              {/* Counter label */}
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  {displayItems.length > 0 ? (
+                    <>
+                      Menampilkan <span className="text-sky-600 font-extrabold">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, displayItems.length)}</span> dari <span className="text-slate-900 font-extrabold">{displayItems.length}</span> {groupByCatalog ? "Catalog Gambar" : "Flyer SKU"} (Halaman {currentPage} dari {totalPages})
+                    </>
+                  ) : (
+                    `Menampilkan 0 Item`
+                  )}
+                </p>
+                {groupByCatalog && (
+                  <p className="text-[11px] font-semibold text-slate-500 mt-0.5">
+                    (Mencakup total <strong className="text-blue-900">{filteredProducts.length} SKU variasi</strong> produk)
+                  </p>
                 )}
-              </p>
-              <div className="flex items-center gap-2">
-                {filteredProducts.length > 0 && (
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                
+                {/* View Mode Switch Toggle */}
+                <div className="bg-slate-200/80 p-1 rounded-xl flex items-center gap-1 shadow-inner border border-slate-300/60">
+                  <button
+                    onClick={() => setGroupByCatalog(true)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                      groupByCatalog
+                        ? "bg-blue-900 text-white shadow-md"
+                        : "text-slate-700 hover:text-slate-900 hover:bg-slate-300/50"
+                    }`}
+                  >
+                    <Layers size={13} className="stroke-[2.5]" />
+                    <span>Gabung Catalog ({groupedProducts.length})</span>
+                  </button>
+                  <button
+                    onClick={() => setGroupByCatalog(false)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                      !groupByCatalog
+                        ? "bg-blue-900 text-white shadow-md"
+                        : "text-slate-700 hover:text-slate-900 hover:bg-slate-300/50"
+                    }`}
+                  >
+                    <Grid2X2 size={13} className="stroke-[2.5]" />
+                    <span>Semua SKU ({filteredProducts.length})</span>
+                  </button>
+                </div>
+
+                {/* Items per page selector */}
+                {displayItems.length > 0 && (
                   <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-xs text-[11px] font-bold text-slate-700">
-                    <span className="text-slate-400 uppercase tracking-wide">Tampilkan:</span>
+                    <span className="text-slate-400 uppercase tracking-wide">Per Hal:</span>
                     <select
                       value={itemsPerPage}
                       onChange={(e) => {
@@ -849,45 +900,44 @@ export default function App() {
                     </select>
                   </div>
                 )}
-                {isAnyFilterActive && (
-                  <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-100 px-2.5 py-1.5 rounded-lg shadow-xs uppercase">
-                    Filter Aktif
-                  </span>
-                )}
               </div>
             </div>
 
-            {filteredProducts.length > 0 ? (
+            {displayItems.length > 0 ? (
               <>
                 <AnimatePresence mode="popLayout">
                   <motion.div
-                    key={`${currentPage}-${searchQuery}-${selectedCategory}-${selectedBrand}-${selectedSubCategory}-${metricFilter}`}
+                    key={`${currentPage}-${searchQuery}-${selectedCategory}-${selectedBrand}-${selectedSubCategory}-${metricFilter}-${groupByCatalog}`}
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -15 }}
                     transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                     className="grid grid-cols-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5 sm:gap-6"
                   >
-                    {paginatedProducts.map((product) => (
-                      <FlyerCard 
-                        key={product.code} 
-                        product={product} 
-                        onOpenDetails={(p) => setSelectedProduct(p)} 
-                        isSelectionMode={isSelectionMode}
-                        isSelected={selectedProductCodes.has(product.code)}
-                        onToggleSelect={(code) => {
-                          setSelectedProductCodes((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(code)) {
-                              next.delete(code);
-                            } else {
-                              next.add(code);
-                            }
-                            return next;
-                          });
-                        }}
-                      />
-                    ))}
+                    {paginatedItems.map((item) => {
+                      const isGrouped = "variations" in item;
+                      const cardKey = isGrouped ? item.id : (item as ProductFlyer).code;
+                      
+                      // Determine selection state
+                      let isSelected = false;
+                      if (isGrouped) {
+                        isSelected = item.variations.every((v) => selectedProductCodes.has(v.code));
+                      } else {
+                        isSelected = selectedProductCodes.has((item as ProductFlyer).code);
+                      }
+
+                      return (
+                        <FlyerCard 
+                          key={cardKey} 
+                          groupedFlyer={isGrouped ? item : undefined}
+                          product={!isGrouped ? (item as ProductFlyer) : undefined}
+                          onOpenDetails={(selected) => setSelectedItem(selected)} 
+                          isSelectionMode={isSelectionMode}
+                          isSelected={isSelected}
+                          onToggleSelect={handleToggleSelectCodeOrGroup}
+                        />
+                      );
+                    })}
                   </motion.div>
                 </AnimatePresence>
 
@@ -899,7 +949,6 @@ export default function App() {
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {/* First Page */}
                       <button
                         onClick={() => setCurrentPage(1)}
                         disabled={currentPage === 1}
@@ -913,7 +962,6 @@ export default function App() {
                         <ChevronsLeft size={16} className="stroke-[2.5]" />
                       </button>
 
-                      {/* Prev Page */}
                       <button
                         onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                         disabled={currentPage === 1}
@@ -927,7 +975,6 @@ export default function App() {
                         <ChevronLeft size={16} className="stroke-[2.5]" />
                       </button>
 
-                      {/* Numeric Pages */}
                       {getPageNumbers().map((pageNum, index) => {
                         if (pageNum === "...") {
                           return (
@@ -956,7 +1003,6 @@ export default function App() {
                         );
                       })}
 
-                      {/* Next Page */}
                       <button
                         onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                         disabled={currentPage === totalPages}
@@ -970,7 +1016,6 @@ export default function App() {
                         <ChevronRight size={16} className="stroke-[2.5]" />
                       </button>
 
-                      {/* Last Page */}
                       <button
                         onClick={() => setCurrentPage(totalPages)}
                         disabled={currentPage === totalPages}
@@ -988,7 +1033,7 @@ export default function App() {
                 )}
               </>
             ) : (
-              /* Beautiful Empty results placeholder */
+              /* Empty results placeholder */
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1015,7 +1060,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Elegant, humble footer */}
+      {/* Footer */}
       <footer className="bg-white border-t border-slate-100 py-10 mt-16 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 space-y-4">
           <div className="flex items-center justify-center gap-1.5 text-slate-900 font-extrabold">
@@ -1032,23 +1077,33 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Large detail viewer modal overlay */}
+      {/* Detail viewer modal overlay */}
       <FlyerDetailModal 
-        product={selectedProduct} 
-        onClose={() => setSelectedProduct(null)} 
+        item={selectedItem} 
+        onClose={() => setSelectedItem(null)} 
         onPrev={() => {
-          if (!selectedProduct || filteredProducts.length === 0) return;
-          const currentIndex = filteredProducts.findIndex((p) => p.code === selectedProduct.code);
+          if (!selectedItem || displayItems.length === 0) return;
+          const currentIndex = displayItems.findIndex((item) => {
+            const isGrouped = "variations" in item;
+            const targetId = isGrouped ? item.id : (item as ProductFlyer).code;
+            const currentSelectedId = "variations" in selectedItem ? selectedItem.id : (selectedItem as ProductFlyer).code;
+            return targetId === currentSelectedId;
+          });
           if (currentIndex === -1) return;
-          const prevIndex = (currentIndex - 1 + filteredProducts.length) % filteredProducts.length;
-          setSelectedProduct(filteredProducts[prevIndex]);
+          const prevIndex = (currentIndex - 1 + displayItems.length) % displayItems.length;
+          setSelectedItem(displayItems[prevIndex]);
         }}
         onNext={() => {
-          if (!selectedProduct || filteredProducts.length === 0) return;
-          const currentIndex = filteredProducts.findIndex((p) => p.code === selectedProduct.code);
+          if (!selectedItem || displayItems.length === 0) return;
+          const currentIndex = displayItems.findIndex((item) => {
+            const isGrouped = "variations" in item;
+            const targetId = isGrouped ? item.id : (item as ProductFlyer).code;
+            const currentSelectedId = "variations" in selectedItem ? selectedItem.id : (selectedItem as ProductFlyer).code;
+            return targetId === currentSelectedId;
+          });
           if (currentIndex === -1) return;
-          const nextIndex = (currentIndex + 1) % filteredProducts.length;
-          setSelectedProduct(filteredProducts[nextIndex]);
+          const nextIndex = (currentIndex + 1) % displayItems.length;
+          setSelectedItem(displayItems[nextIndex]);
         }}
       />
 
@@ -1080,20 +1135,19 @@ export default function App() {
         </div>
       )}
 
-      {/* Floating Selection Bar for Custom Selection */}
+      {/* Floating Selection Bar */}
       {isSelectionMode && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 backdrop-blur-md text-white px-5 py-4 rounded-2xl border border-slate-800 shadow-2xl flex flex-col sm:flex-row items-center gap-4 max-w-[calc(100%-2rem)] w-full sm:w-auto">
           <div className="flex items-center gap-2.5 shrink-0">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs font-bold uppercase tracking-wider">
-              {selectedProductCodes.size} produk terpilih
+              {selectedProductCodes.size} SKU terpilih
             </span>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
             <button
               onClick={() => {
-                // Select all currently visible filtered products
                 const allCurrentCodes = filteredProducts.map(p => p.code);
                 setSelectedProductCodes(new Set(allCurrentCodes));
               }}

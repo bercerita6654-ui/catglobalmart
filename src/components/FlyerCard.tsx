@@ -2,33 +2,32 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { 
   Calendar, 
-  Package, 
   Tag, 
   Layers, 
   Sparkles, 
   Eye, 
-  AlertCircle,
   FileImage,
-  Smartphone
+  Package
 } from "lucide-react";
-import { ProductFlyer } from "../types";
+import { ProductFlyer, GroupedCatalogFlyer } from "../types";
 import { 
   formatUpdateDate, 
-  formatRupiah, 
   getDriveImageUrl,
   isWithinLast24Hours
 } from "../utils/dataService";
 
 interface FlyerCardProps {
-  product: ProductFlyer;
-  onOpenDetails: (product: ProductFlyer) => void;
+  product?: ProductFlyer;
+  groupedFlyer?: GroupedCatalogFlyer;
+  onOpenDetails: (item: GroupedCatalogFlyer | ProductFlyer) => void;
   isSelectionMode?: boolean;
   isSelected?: boolean;
-  onToggleSelect?: (code: string) => void;
+  onToggleSelect?: (codeOrId: string) => void;
 }
 
 export const FlyerCard: React.FC<FlyerCardProps> = ({ 
   product, 
+  groupedFlyer,
   onOpenDetails,
   isSelectionMode = false,
   isSelected = false,
@@ -37,13 +36,27 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
   const [imgError, setImgError] = useState(false);
   const [imgLoading, setImgLoading] = useState(true);
 
-  // Only display image from Column 20 (gambarStory)
-  const imageId = product.gambarStory;
-  const isStory = true;
+  // Derive target items and metadata
+  const itemToUse: GroupedCatalogFlyer | ProductFlyer = (groupedFlyer || product) as GroupedCatalogFlyer | ProductFlyer;
+  const isGrouped = !!groupedFlyer;
+  
+  const primaryProduct: ProductFlyer = isGrouped 
+    ? groupedFlyer.primaryProduct 
+    : (product as ProductFlyer);
 
+  const totalVariations = isGrouped ? groupedFlyer.totalVariations : 1;
+  const variations = isGrouped ? groupedFlyer.variations : [primaryProduct];
+
+  // Only display image from Column 20 (gambarStory)
+  const imageId = isGrouped ? groupedFlyer.gambarStory : primaryProduct.gambarStory;
   const imageUrl = imageId ? getDriveImageUrl(imageId) : "";
-  const lastUpdateFormatted = formatUpdateDate(product.lastUpdate);
-  const isNew = isWithinLast24Hours(product.lastUpdate || product.lastUpdate1);
+
+  const lastUpdate = isGrouped ? groupedFlyer.lastUpdate : (primaryProduct.lastUpdate || primaryProduct.lastUpdate1);
+  const lastUpdateFormatted = formatUpdateDate(lastUpdate);
+  const isNew = isGrouped ? groupedFlyer.isNew : isWithinLast24Hours(lastUpdate);
+
+  const merkDisplay = isGrouped ? groupedFlyer.merk : primaryProduct.merk;
+  const kategoriDisplay = isGrouped ? groupedFlyer.kategori : primaryProduct.kategori;
 
   // Color mappings based on category for rich visual rhythm
   const getCategoryColor = (cat: string) => {
@@ -57,9 +70,9 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
 
   const handleCardClick = () => {
     if (isSelectionMode && onToggleSelect) {
-      onToggleSelect(product.code);
+      onToggleSelect(isGrouped ? groupedFlyer.id : primaryProduct.code);
     } else {
-      onOpenDetails(product);
+      onOpenDetails(itemToUse);
     }
   };
 
@@ -97,12 +110,20 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
       {/* Top badges floating over image */}
       <div className="absolute top-1.5 left-1.5 sm:top-3 sm:left-3 max-w-[90%] z-10 flex items-center justify-between pointer-events-none">
         <div className="flex flex-wrap gap-1 sm:gap-1.5">
-          {product.merk && (
+          {merkDisplay && (
             <span className="inline-flex items-center gap-0.5 sm:gap-1 text-[7px] sm:text-[10px] font-bold text-slate-700 bg-white/90 backdrop-blur-md border border-slate-200/80 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-full uppercase tracking-wide shadow-xs">
               <Tag size={8} className="sm:size-[10px] stroke-[2.5]" />
-              <span className="truncate max-w-[35px] sm:max-w-none">{product.merk}</span>
+              <span className="truncate max-w-[50px] sm:max-w-none">{merkDisplay}</span>
             </span>
           )}
+          
+          {totalVariations > 1 && (
+            <span className="inline-flex items-center gap-0.5 sm:gap-1 text-[7px] sm:text-[10px] font-black text-blue-900 bg-blue-100/90 backdrop-blur-md border border-blue-300/80 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-full uppercase tracking-wider shadow-xs">
+              <Layers size={8} className="sm:size-[10px] stroke-[2.5]" />
+              <span>{totalVariations} SKU Variasi</span>
+            </span>
+          )}
+
           {isNew && (
             <span className="inline-flex items-center gap-0.5 sm:gap-1 text-[7px] sm:text-[10px] font-black text-white bg-rose-600 border border-rose-500/80 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-full uppercase tracking-wider shadow-sm animate-pulse">
               <Sparkles size={8} className="sm:size-[10px] fill-current stroke-[2.5]" />
@@ -125,7 +146,7 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
             )}
             <img
               src={imageUrl}
-              alt={product.description}
+              alt={primaryProduct.description}
               loading="lazy"
               referrerPolicy="no-referrer"
               onLoad={() => setImgLoading(false)}
@@ -148,12 +169,12 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
               {imgError ? "Gagal Memuat Gambar" : "Gambar Belum Tersedia"}
             </p>
             <p className="text-[8px] sm:text-[10px] font-mono text-slate-400 mt-0.5 sm:mt-1 truncate">
-              {product.barcode || product.code}
+              {primaryProduct.barcode || primaryProduct.code}
             </p>
           </div>
         )}
 
-        {/* Hover overlay with action button in vibrant Yellow and Blue theme */}
+        {/* Hover overlay with action button */}
         {!isSelectionMode && (
           <div className="absolute inset-0 bg-blue-950/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
             <motion.button
@@ -162,7 +183,7 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
               className="hidden sm:flex items-center gap-2 px-4.5 py-2.5 bg-yellow-400 text-blue-950 font-extrabold text-xs rounded-full border border-yellow-300 shadow-lg hover:bg-yellow-500 transition-colors cursor-pointer"
             >
               <Eye size={14} className="stroke-[2.5]" />
-              Lihat Flyer Detail
+              Lihat Flyer Detail {totalVariations > 1 ? `(${totalVariations} SKU)` : ""}
             </motion.button>
           </div>
         )}
@@ -172,18 +193,42 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
       <div className="hidden sm:flex p-4 flex-col flex-grow bg-white">
         {/* Category & Code row */}
         <div className="flex items-center justify-between gap-2 mb-2">
-          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${getCategoryColor(product.kategori)}`}>
-            {product.kategori || "UMUM"}
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${getCategoryColor(kategoriDisplay)}`}>
+            {kategoriDisplay || "UMUM"}
           </span>
           <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-md">
-            {product.code}
+            {totalVariations > 1 ? `${primaryProduct.code} (+${totalVariations - 1})` : primaryProduct.code}
           </span>
         </div>
 
         {/* Title / Description */}
-        <h3 className="font-bold text-sm text-slate-800 group-hover:text-sky-600 transition-colors duration-200 leading-snug flex-grow mb-3" title={product.description}>
-          {product.description}
+        <h3 className="font-bold text-sm text-slate-800 group-hover:text-sky-600 transition-colors duration-200 leading-snug flex-grow mb-1" title={primaryProduct.description}>
+          {primaryProduct.description}
         </h3>
+
+        {/* Variations List Preview if multiple SKUs exist */}
+        {totalVariations > 1 && (
+          <div className="my-2 p-2 bg-slate-50 border border-slate-150 rounded-xl">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                <Package size={10} className="stroke-[2.5]" />
+                Daftar SKU ({totalVariations} Variasi):
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {variations.slice(0, 3).map((v) => (
+                <span key={v.code} className="text-[10px] font-mono font-bold bg-white text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
+                  {v.code}
+                </span>
+              ))}
+              {totalVariations > 3 && (
+                <span className="text-[10px] font-mono font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">
+                  +{totalVariations - 3} SKU
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Actions & Updates styled elegantly */}
         <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
@@ -204,7 +249,7 @@ export const FlyerCard: React.FC<FlyerCardProps> = ({
               Update
             </span>
             <span className="text-[9px] font-medium text-slate-600 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-md mt-1 max-w-[110px] truncate" title={lastUpdateFormatted}>
-              {product.lastUpdate ? product.lastUpdate.split(" ")[0] : "Belum diupdate"}
+              {lastUpdate ? lastUpdate.split(" ")[0] : "Belum diupdate"}
             </span>
           </div>
         </div>
