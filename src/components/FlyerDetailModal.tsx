@@ -344,14 +344,6 @@ export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                      <div className="text-left sm:text-right">
-                        <span className="text-[9px] uppercase font-bold text-slate-400 block">Harga Eceran / Baru</span>
-                        <span className="text-xs font-black text-emerald-700">
-                          {formatRupiah(v.hrgBaru || v.eceran)}
-                        </span>
-                      </div>
-                    </div>
                   </div>
                 ))}
               </div>
