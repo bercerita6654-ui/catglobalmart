@@ -80,12 +80,20 @@ export async function fetchVariationMap(): Promise<{
 
     if (rows.length < 2) return { codeMap, barcodeMap };
 
-    // Col 0: SKU/code, Col 1: barcode, Col 2: variasi
+    const headers = rows[0].map((h) => h.trim().toLowerCase());
+    const codeIdx = headers.findIndex((h) => h.includes("code") || h.includes("sku") || h.includes("kode"));
+    const barcodeIdx = headers.findIndex((h) => h.includes("barcode"));
+    const variasiIdx = headers.findIndex((h) => h.includes("variasi"));
+
+    const finalCodeIdx = codeIdx !== -1 ? codeIdx : 0;
+    const finalBarcodeIdx = barcodeIdx !== -1 ? barcodeIdx : 1;
+    const finalVariasiIdx = variasiIdx !== -1 ? variasiIdx : 3;
+
     const dataRows = rows.slice(1);
     dataRows.forEach((row) => {
-      const sku = (row[0] || "").trim().toLowerCase();
-      const barcode = (row[1] || "").trim().toLowerCase();
-      const variasi = (row[2] || "").trim();
+      const sku = (row[finalCodeIdx] || "").trim().toLowerCase();
+      const barcode = (row[finalBarcodeIdx] || "").trim().toLowerCase();
+      const variasi = (row[finalVariasiIdx] || "").trim();
 
       if (variasi !== "") {
         if (sku !== "") codeMap.set(sku, variasi);
@@ -159,7 +167,7 @@ export async function fetchProductFlyers(): Promise<ProductFlyer[]> {
     const dataRows = rows.slice(1);
     const { codeMap, barcodeMap } = variationData;
 
-    const flyers: ProductFlyer[] = dataRows
+    const rawFlyers: ProductFlyer[] = dataRows
       .map((row) => {
         const getVal = (index: number) => (row[index] || "").trim();
 
@@ -199,8 +207,39 @@ export async function fetchProductFlyers(): Promise<ProductFlyer[]> {
 
         return flyer;
       })
-      // Filter out rows that don't have a code, description, or valid image
-      .filter((item) => item.code !== "" && item.description !== "" && hasProductImage(item));
+      .filter((item) => item.code !== "" && item.description !== "");
+
+    // Build map of variation code -> image ID from items that have valid images
+    const variationImageMap = new Map<string, { gambarStory: string; lastUpdate: string }>();
+    rawFlyers.forEach((p) => {
+      if (p.variasiCode) {
+        const key = p.variasiCode.toLowerCase();
+        const img = p.gambarStory || p.fotoProduk;
+        if (img && img.trim() !== "" && !variationImageMap.has(key)) {
+          variationImageMap.set(key, {
+            gambarStory: img,
+            lastUpdate: p.lastUpdate || p.lastUpdate1 || ""
+          });
+        }
+      }
+    });
+
+    // Inherit image for variation SKUs that don't have their own image
+    rawFlyers.forEach((p) => {
+      if ((!p.gambarStory || p.gambarStory.trim() === "") && p.variasiCode) {
+        const key = p.variasiCode.toLowerCase();
+        if (variationImageMap.has(key)) {
+          const varData = variationImageMap.get(key)!;
+          p.gambarStory = varData.gambarStory;
+          p.fotoProduk = varData.gambarStory;
+          if (!p.lastUpdate) p.lastUpdate = varData.lastUpdate;
+          if (!p.lastUpdate1) p.lastUpdate1 = varData.lastUpdate;
+        }
+      }
+    });
+
+    // Filter out rows that don't have a code, description, or valid image
+    const flyers = rawFlyers.filter((item) => hasProductImage(item));
 
     return flyers;
   } catch (error) {

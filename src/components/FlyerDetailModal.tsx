@@ -336,13 +336,6 @@ export const FlyerDetailModal: React.FC<FlyerDetailModalProps> = ({
                           {formatRupiah(v.hrgBaru || v.eceran)}
                         </span>
                       </div>
-                      
-                      <div className="text-right">
-                        <span className="text-[9px] uppercase font-bold text-slate-400 block">Stok / Stat</span>
-                        <span className="text-xs font-extrabold text-slate-700">
-                          {v.qty > 0 ? `${v.qty} ${v.unit || 'Pcs'}` : (v.stat || 'Tersedia')}
-                        </span>
-                      </div>
                     </div>
                   </div>
                 ))}
